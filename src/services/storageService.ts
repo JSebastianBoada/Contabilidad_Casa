@@ -1,0 +1,104 @@
+import type {
+  ArriendoVivienda,
+  CompraCuota,
+  CompraHogar,
+  CuentaFinanciera,
+  GastoAlimentacion,
+  GastoPersonal,
+  IngresoPersonal,
+  PresupuestoCategoria,
+  ServicioPublico,
+  TarjetaCredito,
+  TransferenciaCuenta,
+} from '../types/finance'
+import {
+  initialAlimentacion,
+  initialArriendos,
+  initialComprasCuotas,
+  initialComprasHogar,
+  initialCuentas,
+  initialGastosPersonales,
+  initialIngresos,
+  initialPresupuestos,
+  initialServicios,
+  initialTarjetas,
+} from './initialData'
+
+export interface FullFinanceState {
+  cuentas: CuentaFinanciera[]
+  arriendos: ArriendoVivienda[]
+  servicios: ServicioPublico[]
+  comprasHogar: CompraHogar[]
+  alimentacion: GastoAlimentacion[]
+  ingresos: IngresoPersonal[]
+  gastosPersonales: GastoPersonal[]
+  tarjetas: TarjetaCredito[]
+  comprasCuotas: CompraCuota[]
+  presupuestos: PresupuestoCategoria[]
+  transferencias: TransferenciaCuenta[]
+  version: number
+  lastUpdated: string
+}
+
+export const storageService = {
+  createEmptyState(): FullFinanceState {
+    return {
+      cuentas: [
+        {
+          id: 'cuenta-efectivo-inicial',
+          nombre: 'Efectivo',
+          tipo: 'EFECTIVO',
+          saldo: 0,
+          color: '#10b981',
+          icono: '💵',
+        },
+      ],
+      arriendos: [],
+      servicios: [],
+      comprasHogar: [],
+      alimentacion: [],
+      ingresos: [],
+      gastosPersonales: [],
+      tarjetas: [],
+      comprasCuotas: [],
+      presupuestos: [],
+      transferencias: [],
+      version: 1,
+      lastUpdated: new Date().toISOString(),
+    }
+  },
+
+  createSampleState(): FullFinanceState {
+    return {
+      cuentas: initialCuentas,
+      arriendos: initialArriendos,
+      servicios: initialServicios,
+      comprasHogar: initialComprasHogar,
+      alimentacion: initialAlimentacion,
+      ingresos: initialIngresos,
+      gastosPersonales: initialGastosPersonales,
+      tarjetas: initialTarjetas,
+      comprasCuotas: initialComprasCuotas,
+      presupuestos: initialPresupuestos,
+      transferencias: [],
+      version: 1,
+      lastUpdated: new Date().toISOString(),
+    }
+  },
+
+  exportBackupJson(state: FullFinanceState): string {
+    return JSON.stringify(state, null, 2)
+  },
+
+  parseBackupJson(jsonString: string): FullFinanceState {
+    const parsed = JSON.parse(jsonString) as FullFinanceState
+    if (!parsed || !Array.isArray(parsed.cuentas)) {
+      throw new Error('El archivo no tiene el formato válido de respaldo de finanzas.')
+    }
+    return {
+      ...this.createEmptyState(),
+      ...parsed,
+      lastUpdated: new Date().toISOString(),
+    }
+  },
+}

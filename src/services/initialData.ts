@@ -1,0 +1,377 @@
+import type {
+  ArriendoVivienda,
+  CompraCuota,
+  CompraHogar,
+  CuentaFinanciera,
+  GastoAlimentacion,
+  GastoPersonal,
+  IngresoPersonal,
+  PresupuestoCategoria,
+  ServicioPublico,
+  TarjetaCredito,
+} from '../types/finance'
+import { calcularCuotaMensual } from '../utils/financialCalculations'
+
+const hoy = new Date()
+const currentMonth = `${hoy.getFullYear()}-${String(hoy.getMonth() + 1).padStart(2, '0')}`
+const lastMonth = hoy.getMonth() === 0 
+  ? `${hoy.getFullYear() - 1}-12` 
+  : `${hoy.getFullYear()}-${String(hoy.getMonth()).padStart(2, '0')}`
+
+export const initialCuentas: CuentaFinanciera[] = [
+  {
+    id: 'cuenta-bancolombia',
+    nombre: 'Bancolombia Ahorros',
+    tipo: 'BANCO',
+    saldo: 2850000,
+    numero: '•••• 4589',
+    color: '#3b82f6',
+    icono: 'landmark',
+  },
+  {
+    id: 'cuenta-nequi',
+    nombre: 'Nequi',
+    tipo: 'BILLETERA_DIGITAL',
+    saldo: 640000,
+    numero: '312 ••• 8841',
+    color: '#8b5cf6',
+    icono: 'smartphone',
+  },
+  {
+    id: 'cuenta-daviplata',
+    nombre: 'Daviplata',
+    tipo: 'BILLETERA_DIGITAL',
+    saldo: 230000,
+    numero: '312 ••• 8841',
+    color: '#ef4444',
+    icono: 'smartphone',
+  },
+  {
+    id: 'cuenta-efectivo',
+    nombre: 'Efectivo en Mano / Billetera',
+    tipo: 'EFECTIVO',
+    saldo: 185000,
+    color: '#10b981',
+    icono: 'wallet',
+  },
+]
+
+export const initialArriendos: ArriendoVivienda[] = [
+  {
+    id: 'arr-1',
+    mesCorrespondiente: currentMonth,
+    monto: 1350000,
+    fechaLimite: `${currentMonth}-05`,
+    pagado: true,
+    fechaPago: `${currentMonth}-03`,
+    cuentaId: 'cuenta-bancolombia',
+    arrendador: 'Inmobiliaria El Hogar / Propietario',
+    notas: 'Incluye pago de administración del edificio',
+  },
+]
+
+export const initialServicios: ServicioPublico[] = [
+  {
+    id: 'serv-energia',
+    tipo: 'ENERGIA',
+    nombre: 'Energía / Luz (EPM / Enel)',
+    monto: 142000,
+    fechaVencimiento: `${currentMonth}-18`,
+    pagado: false,
+    periodo: currentMonth,
+    cuentaId: 'cuenta-bancolombia',
+    consumo: '165 kWh',
+    notas: 'Factura mensual de electricidad',
+  },
+  {
+    id: 'serv-agua',
+    tipo: 'AGUA',
+    nombre: 'Acueducto & Alcantarillado',
+    monto: 86500,
+    fechaVencimiento: `${currentMonth}-22`,
+    pagado: false,
+    periodo: currentMonth,
+    cuentaId: 'cuenta-nequi',
+    consumo: '14 m³',
+    notas: 'Consumo normal del mes',
+  },
+  {
+    id: 'serv-gas',
+    tipo: 'GAS',
+    nombre: 'Gas Natural Domiciliario',
+    monto: 34200,
+    fechaVencimiento: `${currentMonth}-25`,
+    pagado: false,
+    periodo: currentMonth,
+    cuentaId: 'cuenta-nequi',
+    consumo: '18 m³',
+    notas: 'Cocina y calentador',
+  },
+  {
+    id: 'serv-internet',
+    tipo: 'INTERNET',
+    nombre: 'Internet Fibra Óptica 300 Mbps',
+    monto: 89900,
+    fechaVencimiento: `${currentMonth}-12`,
+    pagado: true,
+    fechaPago: `${currentMonth}-10`,
+    periodo: currentMonth,
+    cuentaId: 'cuenta-bancolombia',
+    consumo: 'Plan 300 Megas + TV',
+    notas: 'Pago automático domiciliado',
+  },
+]
+
+export const initialComprasHogar: CompraHogar[] = [
+  {
+    id: 'comp-hogar-1',
+    fecha: `${currentMonth}-04`,
+    descripcion: 'Artículos de aseo general y detergentes',
+    monto: 95000,
+    categoria: 'ASEO',
+    cuentaId: 'cuenta-nequi',
+    lugar: 'D1 / Tienda de barrio',
+  },
+  {
+    id: 'comp-hogar-2',
+    fecha: `${currentMonth}-08`,
+    descripcion: 'Juego de bombillos LED y herramientas menores',
+    monto: 48000,
+    categoria: 'HERRAMIENTAS',
+    cuentaId: 'cuenta-efectivo',
+    lugar: 'Homecenter / Ferretería',
+  },
+]
+
+export const initialAlimentacion: GastoAlimentacion[] = [
+  {
+    id: 'alim-1',
+    fecha: `${currentMonth}-02`,
+    tipoComida: 'MERCADO_GENERAL',
+    descripcion: 'Mercado grande primera quincena (Carnes, verduras, granos, lácteos)',
+    monto: 420000,
+    cuentaId: 'cuenta-bancolombia',
+    lugarOProveedor: 'Éxito / Supermercado',
+    esMercadoGrande: true,
+  },
+  {
+    id: 'alim-2',
+    fecha: `${currentMonth}-03`,
+    tipoComida: 'DESAYUNO',
+    descripcion: 'Panadería, huevos, queso y café para la semana',
+    monto: 38000,
+    cuentaId: 'cuenta-efectivo',
+    lugarOProveedor: 'Panadería La Espiga',
+  },
+  {
+    id: 'alim-3',
+    fecha: `${currentMonth}-05`,
+    tipoComida: 'ALMUERZO',
+    descripcion: 'Ingredientes frescos para almuerzos (Pechuga, verduras, aguacate)',
+    monto: 52000,
+    cuentaId: 'cuenta-nequi',
+    lugarOProveedor: 'Plaza de mercado',
+  },
+  {
+    id: 'alim-4',
+    fecha: `${currentMonth}-07`,
+    tipoComida: 'COMIDA',
+    descripcion: 'Cena rápida en casa / Ingredientes para arepas y quesos',
+    monto: 24000,
+    cuentaId: 'cuenta-efectivo',
+    lugarOProveedor: 'Tienda local',
+  },
+  {
+    id: 'alim-5',
+    fecha: `${currentMonth}-11`,
+    tipoComida: 'DESAYUNO',
+    descripcion: 'Frutas, avena y leche de almendras',
+    monto: 29000,
+    cuentaId: 'cuenta-nequi',
+    lugarOProveedor: 'Frutería local',
+  },
+]
+
+export const initialIngresos: IngresoPersonal[] = [
+  {
+    id: 'ing-1',
+    fecha: `${currentMonth}-01`,
+    tipo: 'NOMINA',
+    descripcion: 'Pago Nómina 1ra Quincena',
+    monto: 2450000,
+    periodo: 'QUINCENA_1',
+    cuentaId: 'cuenta-bancolombia',
+  },
+  {
+    id: 'ing-2',
+    fecha: `${currentMonth}-06`,
+    tipo: 'HORAS_EXTRAS',
+    descripcion: 'Pago de horas extras y recargos',
+    monto: 380000,
+    periodo: 'PUNTUAL',
+    cuentaId: 'cuenta-bancolombia',
+  },
+]
+
+export const initialGastosPersonales: GastoPersonal[] = [
+  {
+    id: 'gp-1',
+    fecha: `${currentMonth}-05`,
+    categoria: 'CELULAR',
+    descripcion: 'Plan Móvil Pospago 50GB + Minutos Ilimitados',
+    monto: 49900,
+    cuentaId: 'cuenta-bancolombia',
+    lugar: 'Claro / Movistar',
+  },
+  {
+    id: 'gp-2',
+    fecha: `${currentMonth}-06`,
+    categoria: 'RESTAURANTES_COMIDAS_FUERA',
+    descripcion: 'Cena de fin de semana / Salida a restaurante',
+    monto: 85000,
+    cuentaId: 'cuenta-nequi',
+    lugar: 'Restaurante El Leño',
+  },
+  {
+    id: 'gp-3',
+    fecha: `${currentMonth}-07`,
+    categoria: 'PARTIDOS_OCIO_EVENTOS',
+    descripcion: 'Cancha sintética fútbol 8 + bebidas con amigos',
+    monto: 35000,
+    cuentaId: 'cuenta-efectivo',
+    lugar: 'Canchas La 10',
+  },
+  {
+    id: 'gp-4',
+    fecha: `${currentMonth}-09`,
+    categoria: 'REGALOS',
+    descripcion: 'Regalo de cumpleaños familiar',
+    monto: 120000,
+    cuentaId: 'cuenta-bancolombia',
+    lugar: 'Centro Comercial',
+  },
+  {
+    id: 'gp-5',
+    fecha: `${currentMonth}-10`,
+    categoria: 'SUSCRIPCIONES',
+    descripcion: 'Spotify Premium + Netflix Plan Estándar',
+    monto: 45800,
+    cuentaId: 'cuenta-bancolombia',
+  },
+]
+
+export const initialTarjetas: TarjetaCredito[] = [
+  {
+    id: 'tc-nu',
+    nombre: 'Nu Mastercard Gold',
+    banco: 'Nu Colombia',
+    ultimos4Digitos: '9124',
+    franquicia: 'MASTERCARD',
+    cupoTotal: 4500000,
+    diaCorte: 15,
+    diaLimitePago: 25,
+    tasaInteresMensual: 2.15,
+    color: '#8b5cf6',
+  },
+  {
+    id: 'tc-bancolombia',
+    nombre: 'Bancolombia Visa Clásica',
+    banco: 'Bancolombia',
+    ultimos4Digitos: '3481',
+    franquicia: 'VISA',
+    cupoTotal: 7000000,
+    diaCorte: 18,
+    diaLimitePago: 28,
+    tasaInteresMensual: 2.08,
+    color: '#f59e0b',
+  },
+]
+
+export const initialComprasCuotas: CompraCuota[] = [
+  {
+    id: 'cc-1',
+    tarjetaId: 'tc-nu',
+    descripcion: 'Smart TV Samsung 55" 4K UHD',
+    comercio: 'Alkosto / Ktronix',
+    fechaCompra: `${lastMonth}-10`,
+    montoTotal: 1800000,
+    cuotasTotales: 12,
+    cuotasPagadas: 2,
+    tasaInteresMensual: 2.15,
+    valorCuota: calcularCuotaMensual(1800000, 12, 2.15),
+    saldoRestante: 1540000,
+    fechaInicioCobro: lastMonth,
+    estado: 'ACTIVA',
+    historialPagos: [
+      {
+        numeroCuota: 1,
+        fechaPago: `${lastMonth}-24`,
+        montoPagado: calcularCuotaMensual(1800000, 12, 2.15),
+        abonoCapital: 133500,
+        interes: 38700,
+        cuentaId: 'cuenta-bancolombia',
+      },
+    ],
+    notas: 'Promoción compra para la sala',
+  },
+  {
+    id: 'cc-2',
+    tarjetaId: 'tc-bancolombia',
+    descripcion: 'Tenis y Ropa deportiva',
+    comercio: 'Nike Store',
+    fechaCompra: `${currentMonth}-02`,
+    montoTotal: 450000,
+    cuotasTotales: 3,
+    cuotasPagadas: 0,
+    tasaInteresMensual: 0, // 0% interés a 3 cuotas
+    valorCuota: 150000,
+    saldoRestante: 450000,
+    fechaInicioCobro: currentMonth,
+    estado: 'ACTIVA',
+    historialPagos: [],
+    notas: 'Compra diferida a 3 cuotas sin interés',
+  },
+]
+
+export const initialPresupuestos: PresupuestoCategoria[] = [
+  {
+    id: 'pres-hogar',
+    mes: currentMonth,
+    categoriaClave: 'HOGAR_TOTAL',
+    nombre: 'Vivienda y Arriendo',
+    grupo: 'HOGAR',
+    limiteMonto: 1400000,
+  },
+  {
+    id: 'pres-servicios',
+    mes: currentMonth,
+    categoriaClave: 'SERVICIOS_PUBLICOS',
+    nombre: 'Servicios Públicos e Internet',
+    grupo: 'SERVICIOS',
+    limiteMonto: 380000,
+  },
+  {
+    id: 'pres-alim',
+    mes: currentMonth,
+    categoriaClave: 'ALIMENTACION_TOTAL',
+    nombre: 'Mercado y Alimentación del Hogar',
+    grupo: 'ALIMENTACION',
+    limiteMonto: 850000,
+  },
+  {
+    id: 'pres-personal',
+    mes: currentMonth,
+    categoriaClave: 'PERSONAL_OCIO',
+    nombre: 'Finanzas Personales, Salidas y Ocio',
+    grupo: 'PERSONAL',
+    limiteMonto: 450000,
+  },
+  {
+    id: 'pres-tarjetas',
+    mes: currentMonth,
+    categoriaClave: 'CUOTAS_TARJETAS',
+    nombre: 'Cuotas de Tarjetas de Crédito',
+    grupo: 'TARJETAS',
+    limiteMonto: 400000,
+  },
+]
