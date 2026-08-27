@@ -11,34 +11,35 @@ export interface FirebaseConfigOptions {
   appId?: string
 }
 
-function getStoredFirebaseConfig(): FirebaseConfigOptions | null {
-  // 1. Prioridad: Variables de entorno desde el archivo .env
+// Configuración oficial del proyecto Firebase
+const defaultFirebaseConfig: FirebaseConfigOptions = {
+  apiKey: "AIzaSyDQi_VMfJ_C78lwORZLqThQckKrKT5JU8o",
+  authDomain: "contabilidadcasa-6231f.firebaseapp.com",
+  projectId: "contabilidadcasa-6231f",
+  storageBucket: "contabilidadcasa-6231f.firebasestorage.app",
+  messagingSenderId: "1044914739954",
+  appId: "1:1044914739954:web:ab6930bcd0bbcd87068e6b",
+}
+
+function getStoredFirebaseConfig(): FirebaseConfigOptions {
+  // 1. Si existen variables en .env, utilizarlas
   const metaEnv = (import.meta as unknown as { env?: Record<string, string> }).env || {}
-  const envConfig: FirebaseConfigOptions = {
-    apiKey: (metaEnv.VITE_FIREBASE_API_KEY ?? '').trim(),
-    authDomain: (metaEnv.VITE_FIREBASE_AUTH_DOMAIN ?? '').trim(),
-    projectId: (metaEnv.VITE_FIREBASE_PROJECT_ID ?? '').trim(),
-    storageBucket: (metaEnv.VITE_FIREBASE_STORAGE_BUCKET ?? '').trim(),
-    messagingSenderId: (metaEnv.VITE_FIREBASE_MESSAGING_SENDER_ID ?? '').trim(),
-    appId: (metaEnv.VITE_FIREBASE_APP_ID ?? '').trim(),
-  }
+  const envApiKey = (metaEnv.VITE_FIREBASE_API_KEY ?? '').trim()
+  const envProjectId = (metaEnv.VITE_FIREBASE_PROJECT_ID ?? '').trim()
 
-  if (envConfig.apiKey && envConfig.projectId) {
-    return envConfig
-  }
-
-  // 2. Fallback a configuración guardada localmente
-  try {
-    const saved = localStorage.getItem('contabilidad_firebase_config')
-    if (saved) {
-      const parsed = JSON.parse(saved)
-      if (parsed.apiKey && parsed.projectId) return parsed
+  if (envApiKey && envProjectId) {
+    return {
+      apiKey: envApiKey,
+      authDomain: (metaEnv.VITE_FIREBASE_AUTH_DOMAIN ?? '').trim() || defaultFirebaseConfig.authDomain,
+      projectId: envProjectId,
+      storageBucket: (metaEnv.VITE_FIREBASE_STORAGE_BUCKET ?? '').trim() || defaultFirebaseConfig.storageBucket,
+      messagingSenderId: (metaEnv.VITE_FIREBASE_MESSAGING_SENDER_ID ?? '').trim() || defaultFirebaseConfig.messagingSenderId,
+      appId: (metaEnv.VITE_FIREBASE_APP_ID ?? '').trim() || defaultFirebaseConfig.appId,
     }
-  } catch {
-    // Ignore error
   }
 
-  return null
+  // 2. Usar la configuración integrada predeterminada
+  return defaultFirebaseConfig
 }
 
 let app: FirebaseApp | null = null
@@ -46,7 +47,7 @@ let db: Firestore | null = null
 let auth: Auth | null = null
 
 export function isFirebaseConfigured(): boolean {
-  return getStoredFirebaseConfig() !== null
+  return true
 }
 
 export function saveFirebaseConfig(config: FirebaseConfigOptions): void {
@@ -56,15 +57,12 @@ export function saveFirebaseConfig(config: FirebaseConfigOptions): void {
   auth = null
 }
 
-export function getActiveFirebaseConfig(): FirebaseConfigOptions | null {
+export function getActiveFirebaseConfig(): FirebaseConfigOptions {
   return getStoredFirebaseConfig()
 }
 
 export function getFirebaseApp(): FirebaseApp {
   const config = getStoredFirebaseConfig()
-  if (!config) {
-    throw new Error('Firebase no está configurado todavía.')
-  }
   if (!app) {
     app = initializeApp(config)
   }
