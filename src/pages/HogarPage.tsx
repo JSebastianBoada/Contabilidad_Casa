@@ -1,6 +1,7 @@
 import { useState, useMemo, type FormEvent, useEffect } from 'react'
 import { useFinance } from '../context/FinanceContext'
 import { Modal } from '../components/Modal'
+import { DatePickerInput } from '../components/DatePickerInput'
 import { formatMoney, formatDate, formatMonthYear, getDaysRemaining } from '../utils/formatters'
 import type { ArriendoVivienda, CategoriaCompraHogar, ServicioPublico, TipoServicioPublico } from '../types/finance'
 
@@ -708,16 +709,13 @@ export function HogarPage() {
               />
             </div>
 
-            <div className="form-group">
-              <label>Fecha de Vencimiento *</label>
-              <input
-                type="date"
-                className="form-input"
-                value={fechaVencServ}
-                onChange={(e) => setFechaVencServ(e.target.value)}
-                required
-              />
-            </div>
+            <DatePickerInput
+              label="Fecha de Vencimiento"
+              value={fechaVencServ}
+              onChange={setFechaVencServ}
+              selectedMonthContext={selectedMonth}
+              required
+            />
           </div>
 
           <div className="form-grid">
@@ -816,16 +814,13 @@ export function HogarPage() {
               </div>
             </div>
 
-            <div className="form-group">
-              <label>Fecha Límite Completa *</label>
-              <input
-                type="date"
-                className="form-input"
-                value={fechaLimArr}
-                onChange={(e) => handleFechaLimArrChange(e.target.value)}
-                required
-              />
-            </div>
+            <DatePickerInput
+              label="Fecha Límite Completa"
+              value={fechaLimArr}
+              onChange={handleFechaLimArrChange}
+              selectedMonthContext={mesArr}
+              required
+            />
           </div>
 
           <div className="form-group">
@@ -895,10 +890,13 @@ export function HogarPage() {
               />
             </div>
 
-            <div className="form-group">
-              <label>Fecha *</label>
-              <input type="date" className="form-input" value={fechaCompra} onChange={(e) => setFechaCompra(e.target.value)} required />
-            </div>
+            <DatePickerInput
+              label="Fecha de Compra"
+              value={fechaCompra}
+              onChange={setFechaCompra}
+              selectedMonthContext={selectedMonth}
+              required
+            />
           </div>
 
           <div className="form-grid">

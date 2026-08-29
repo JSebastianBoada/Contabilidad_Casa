@@ -1,6 +1,7 @@
 import { useState, useMemo, type FormEvent } from 'react'
 import { useFinance } from '../context/FinanceContext'
 import { Modal } from '../components/Modal'
+import { DatePickerInput } from '../components/DatePickerInput'
 import { formatMoney, formatDate, formatMonthYear } from '../utils/formatters'
 import type { CategoriaGastoPersonal, MetodoPago, TipoIngreso } from '../types/finance'
 
@@ -904,10 +905,13 @@ export function PersonalPage() {
               />
             </div>
 
-            <div className="form-group">
-              <label>Fecha *</label>
-              <input type="date" className="form-input" value={fechaGasto} onChange={(e) => setFechaGasto(e.target.value)} required />
-            </div>
+            <DatePickerInput
+              label="Fecha del Gasto"
+              value={fechaGasto}
+              onChange={setFechaGasto}
+              selectedMonthContext={selectedMonth}
+              required
+            />
           </div>
 
           <div className="form-grid">
@@ -1132,10 +1136,13 @@ export function PersonalPage() {
               />
             </div>
 
-            <div className="form-group">
-              <label>Fecha de Recepción *</label>
-              <input type="date" className="form-input" value={fechaIngreso} onChange={(e) => setFechaIngreso(e.target.value)} required />
-            </div>
+            <DatePickerInput
+              label="Fecha de Recepción"
+              value={fechaIngreso}
+              onChange={setFechaIngreso}
+              selectedMonthContext={selectedMonth}
+              required
+            />
           </div>
 
           <div className="form-grid">

@@ -1,13 +1,14 @@
 import { useState, useMemo, type FormEvent } from 'react'
 import { useFinance } from '../context/FinanceContext'
 import { Modal } from '../components/Modal'
+import { DatePickerInput } from '../components/DatePickerInput'
 import {
   calcularCuotaMensual,
   generarTablaAmortizacion,
   type DetalleTablaAmortizacion,
 } from '../utils/financialCalculations'
 import { formatMoney, formatDate, formatMonthYear } from '../utils/formatters'
-import type { FranquiciaTarjeta, CompraCuota } from '../types/finance'
+import type { FranquiciaTarjeta, CompraCuota, TarjetaCredito } from '../types/finance'
 
 export function TarjetasPage() {
   const {
@@ -25,12 +26,21 @@ export function TarjetasPage() {
     pagarCuotaCompra,
     prepagarCompra,
     deleteCompraCuota,
+    showToast,
   } = useFinance()
 
   const [modalTarjetaOpen, setModalTarjetaOpen] = useState(false)
   const [modalCompraOpen, setModalCompraOpen] = useState(false)
   const [modalAmortizacion, setModalAmortizacion] = useState<CompraCuota | null>(null)
   const [modalPagarCuota, setModalPagarCuota] = useState<CompraCuota | null>(null)
+  const [modalPagarTarjeta, setModalPagarTarjeta] = useState<{
+    tarjeta: TarjetaCredito
+    pagoMinimo: number
+    pagoTotal: number
+    consumos1Cuota: number
+  } | null>(null)
+  const [tipoPagoSeleccionado, setTipoPagoSeleccionado] = useState<'TOTAL' | 'MINIMO' | 'PERSONALIZADO'>('TOTAL')
+  const [montoPersonalizado, setMontoPersonalizado] = useState('')
   const [cuentaPagoId, setCuentaPagoId] = useState(state.cuentas[0]?.id || '')
   const [filtroPeriodo1Cuota, setFiltroPeriodo1Cuota] = useState<'MES_ACTUAL' | 'TODOS'>('MES_ACTUAL')
 
@@ -158,6 +168,10 @@ export function TarjetasPage() {
     )
   }, [modalAmortizacion])
 
+  // Pagos Mínimos y Totales Globales
+  const totalPagoMinimoMes = totalCuotasTarjetasMes
+  const totalPagoTotalMes = totalExtractoTarjetasMes
+
   function handleAddTarjeta(e: FormEvent) {
     e.preventDefault()
     if (!nombreTc || !cupoTotalTc) return
@@ -211,6 +225,35 @@ export function TarjetasPage() {
     setModalPagarCuota(null)
   }
 
+  // Acción: Confirmar Pago de Tarjeta (Total, Mínimo o Personalizado)
+  function handleConfirmarPagoTarjeta(e: FormEvent) {
+    e.preventDefault()
+    if (!modalPagarTarjeta) return
+
+    const tarjeta = modalPagarTarjeta.tarjeta
+    const comprasActivas = state.comprasCuotas.filter(
+      (c) => c.tarjetaId === tarjeta.id && c.estado === 'ACTIVA' && c.cuotasPagadas < c.cuotasTotales
+    )
+
+    // Pagar las cuotas de las compras diferidas activas de esta tarjeta
+    comprasActivas.forEach((c) => {
+      pagarCuotaCompra(c.id, cuentaPagoId)
+    })
+
+    const valorPagado =
+      tipoPagoSeleccionado === 'TOTAL'
+        ? modalPagarTarjeta.pagoTotal
+        : tipoPagoSeleccionado === 'MINIMO'
+        ? modalPagarTarjeta.pagoMinimo
+        : Number(montoPersonalizado) || modalPagarTarjeta.pagoMinimo
+
+    showToast(
+      'Pago de Tarjeta Registrado',
+      `Se debitaron ${formatMoney(valorPagado)} para ${tarjeta.nombre}`
+    )
+    setModalPagarTarjeta(null)
+  }
+
   return (
     <div className="page">
       {/* Header */}
@@ -221,10 +264,10 @@ export function TarjetasPage() {
               <rect x="2" y="5" width="20" height="14" rx="2" />
               <line x1="2" y1="10" x2="22" y2="10" />
             </svg>
-            Tarjetas de Crédito, 1 Cuota & Compras Diferidas
+            Tarjetas de Crédito & Pagos del Mes
           </h1>
           <p>
-            Control de cupos, consumos mensuales a 1 cuota (celular, gasolina), compras diferidas y cálculo del extracto total para{' '}
+            Control de cupos, pagos mínimos obligatorios, pago total sin intereses y compras diferidas para{' '}
             <strong>{formatMonthYear(selectedMonth)}</strong>.
           </p>
         </div>
@@ -239,7 +282,7 @@ export function TarjetasPage() {
         </div>
       </div>
 
-      {/* KPIs de Crédito y Extracto */}
+      {/* KPIs de Crédito y Extracto con Identificación de Pagos Mínimos */}
       <div className="stat-grid">
         <article className="stat-card">
           <div className="stat-card-top">
@@ -262,36 +305,41 @@ export function TarjetasPage() {
           <div className="stat-value" style={{ color: 'var(--color-credit)' }}>
             {formatMoney(totalGastos1CuotaTarjetasMes)}
           </div>
-          <span className="stat-subtext">Plan celular, gasolina, suscripciones</span>
+          <span className="stat-subtext">Celular, gasolina, suscripciones, comidas</span>
         </article>
 
         <article className="stat-card" style={{ borderLeft: '4px solid #f59e0b' }}>
           <div className="stat-card-top">
-            <span className="stat-card-title">Cuotas Diferidas este Mes</span>
-            <span className="badge warning">Compras a Plazos</span>
+            <span className="stat-card-title">🟡 Pago Mínimo del Mes</span>
+            <span className="badge warning">Obligatorio</span>
           </div>
           <div className="stat-value" style={{ color: 'var(--color-warning-text)' }}>
-            {formatMoney(totalCuotasTarjetasMes)}
+            {formatMoney(totalPagoMinimoMes)}
           </div>
-          <span className="stat-subtext">Compras diferidas activas</span>
+          <span className="stat-subtext">Cuotas de compras diferidas activas</span>
         </article>
 
-        <article className="stat-card" style={{ borderLeft: '4px solid var(--color-expense)' }}>
+        <article className="stat-card" style={{ borderLeft: '4px solid #10b981' }}>
           <div className="stat-card-top">
-            <span className="stat-card-title">Total Extracto este Mes</span>
-            <span className="badge expense">Total a Pagar</span>
+            <span className="stat-card-title">🟢 Pago Total (0 Intereses)</span>
+            <span className="badge income">Recomendado</span>
           </div>
-          <div className="stat-value" style={{ color: 'var(--color-expense)', fontSize: '1.65rem' }}>
-            {formatMoney(totalExtractoTarjetasMes)}
+          <div className="stat-value" style={{ color: 'var(--color-income)', fontSize: '1.65rem' }}>
+            {formatMoney(totalPagoTotalMes)}
           </div>
-          <span className="stat-subtext">1 cuota + cuotas diferidas del mes</span>
+          <span className="stat-subtext">1 cuota ({formatMoney(totalGastos1CuotaTarjetasMes)}) + Mínimo ({formatMoney(totalPagoMinimoMes)})</span>
         </article>
       </div>
 
-      {/* Sección de Tarjetas Físicas Visuales */}
+      {/* Sección de Tarjetas Físicas Visuales con Desglose de Pago Mínimo y Pago Total */}
       <div className="panel">
         <div className="panel-header">
-          <h2 className="panel-title">Tus Tarjetas de Crédito Registradas</h2>
+          <div>
+            <h2 className="panel-title">Tus Tarjetas de Crédito Registradas</h2>
+            <span style={{ fontSize: '0.8rem', color: 'var(--color-text-muted)' }}>
+              Identificación clara del Pago Mínimo mensual y Pago Total para no generar intereses.
+            </span>
+          </div>
           <button type="button" className="btn primary sm" onClick={() => setModalTarjetaOpen(true)}>
             + Nueva Tarjeta
           </button>
@@ -305,11 +353,17 @@ export function TarjetasPage() {
             const consumos1CuotaTc = consumos1CuotaMes
               .filter((c) => c.tarjetaId === t.id)
               .reduce((acc, c) => acc + c.monto, 0)
+            const cuotasMesTc = state.comprasCuotas
+              .filter((c) => c.tarjetaId === t.id && c.estado === 'ACTIVA' && c.cuotasPagadas < c.cuotasTotales)
+              .reduce((acc, c) => acc + c.valorCuota, 0)
+
+            const pagoMinimoTc = cuotasMesTc
+            const pagoTotalTc = cuotasMesTc + consumos1CuotaTc
             const disponibleTc = Math.max(0, t.cupoTotal - deudaTc - consumos1CuotaTc)
             const pctUso = t.cupoTotal > 0 ? Math.round(((deudaTc + consumos1CuotaTc) / t.cupoTotal) * 100) : 0
 
             return (
-              <div key={t.id} style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+              <div key={t.id} style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
                 <div
                   className="credit-card-visual"
                   style={{
@@ -334,9 +388,16 @@ export function TarjetasPage() {
                   </div>
 
                   <div>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.75rem', marginBottom: '0.35rem' }}>
-                      <span>Deuda Diferida: <strong>{formatMoney(deudaTc)}</strong></span>
-                      <span>1 Cuota Mes: <strong>{formatMoney(consumos1CuotaTc)}</strong></span>
+                    {/* Desglose de Pagos Mínimo y Total */}
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '3px', backgroundColor: 'rgba(0,0,0,0.25)', padding: '0.5rem', borderRadius: 'var(--radius-sm)', marginBottom: '0.5rem' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.75rem' }}>
+                        <span style={{ color: '#fde047' }}>🟡 Pago Mínimo:</span>
+                        <strong style={{ color: '#fde047' }}>{formatMoney(pagoMinimoTc)}</strong>
+                      </div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.75rem' }}>
+                        <span style={{ color: '#86efac' }}>🟢 Pago Total (0 Intereses):</span>
+                        <strong style={{ color: '#86efac' }}>{formatMoney(pagoTotalTc)}</strong>
+                      </div>
                     </div>
 
                     <div style={{ width: '100%', height: '6px', backgroundColor: 'rgba(255,255,255,0.25)', borderRadius: '999px', overflow: 'hidden' }}>
@@ -350,14 +411,30 @@ export function TarjetasPage() {
                       />
                     </div>
 
-                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.7rem', marginTop: '0.4rem', opacity: 0.85 }}>
-                      <span>Corte: Día {t.diaCorte} | Límite: Día {t.diaLimitePago}</span>
-                      <span>Disponible: {formatMoney(disponibleTc)}</span>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.7rem', marginTop: '0.4rem', opacity: 0.9 }}>
+                      <span>📅 Corte: Día {t.diaCorte} | ⏰ Límite: Día {t.diaLimitePago}</span>
+                      <span>Cupo Libre: {formatMoney(disponibleTc)}</span>
                     </div>
                   </div>
                 </div>
 
-                <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <button
+                    type="button"
+                    className="btn primary sm"
+                    onClick={() => {
+                      setModalPagarTarjeta({
+                        tarjeta: t,
+                        pagoMinimo: pagoMinimoTc,
+                        pagoTotal: pagoTotalTc,
+                        consumos1Cuota: consumos1CuotaTc,
+                      })
+                      setTipoPagoSeleccionado('TOTAL')
+                    }}
+                  >
+                    💳 Pagar Tarjeta ({formatMoney(pagoTotalTc)})
+                  </button>
+
                   <button
                     type="button"
                     className="btn ghost sm"
@@ -768,10 +845,13 @@ export function TarjetasPage() {
               />
             </div>
 
-            <div className="form-group">
-              <label>Fecha de la Compra *</label>
-              <input type="date" className="form-input" value={fechaCompra} onChange={(e) => setFechaCompra(e.target.value)} required />
-            </div>
+            <DatePickerInput
+              label="Fecha de la Compra"
+              value={fechaCompra}
+              onChange={setFechaCompra}
+              selectedMonthContext={selectedMonth}
+              required
+            />
           </div>
 
           <div className="form-grid">
@@ -830,9 +910,158 @@ export function TarjetasPage() {
         </form>
       </Modal>
 
-      {/* MODAL PAGAR CUOTA */}
+      {/* MODAL PAGAR EXTRACTO / PAGO MÍNIMO DE LA TARJETA */}
+      {modalPagarTarjeta && (
+        <Modal
+          isOpen={Boolean(modalPagarTarjeta)}
+          onClose={() => setModalPagarTarjeta(null)}
+          title={`💳 Pagar Extracto: ${modalPagarTarjeta.tarjeta.nombre}`}
+          maxWidth="560px"
+        >
+          <form onSubmit={handleConfirmarPagoTarjeta} style={{ display: 'flex', flexDirection: 'column', gap: '1.15rem' }}>
+            <p style={{ fontSize: '0.85rem', color: 'var(--color-text-muted)', margin: 0 }}>
+              Elige cómo deseas liquidar la facturación de tu tarjeta para el período <strong>{formatMonthYear(selectedMonth)}</strong>:
+            </p>
+
+            {/* Opciones de Pago */}
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '0.65rem' }}>
+              {/* Opción 1: Pago Total */}
+              <label
+                style={{
+                  display: 'flex',
+                  alignItems: 'flex-start',
+                  gap: '0.75rem',
+                  padding: '0.85rem',
+                  borderRadius: 'var(--radius-md)',
+                  border: `2px solid ${tipoPagoSeleccionado === 'TOTAL' ? 'var(--color-income)' : 'var(--color-border)'}`,
+                  backgroundColor: tipoPagoSeleccionado === 'TOTAL' ? 'var(--color-income-subtle)' : 'var(--color-surface)',
+                  cursor: 'pointer',
+                }}
+              >
+                <input
+                  type="radio"
+                  name="tipoPago"
+                  checked={tipoPagoSeleccionado === 'TOTAL'}
+                  onChange={() => setTipoPagoSeleccionado('TOTAL')}
+                  style={{ marginTop: '0.25rem' }}
+                />
+                <div style={{ flex: 1 }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <strong style={{ color: 'var(--color-income-text)', fontSize: '0.925rem' }}>
+                      🟢 Pago Total del Mes (0 Intereses)
+                    </strong>
+                    <span style={{ fontWeight: 800, fontSize: '1.1rem', color: 'var(--color-income-text)' }}>
+                      {formatMoney(modalPagarTarjeta.pagoTotal)}
+                    </span>
+                  </div>
+                  <span style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)', display: 'block', marginTop: '2px' }}>
+                    Liquida cuotas diferidas ({formatMoney(modalPagarTarjeta.pagoMinimo)}) + consumos a 1 cuota ({formatMoney(modalPagarTarjeta.consumos1Cuota)}).
+                  </span>
+                </div>
+              </label>
+
+              {/* Opción 2: Pago Mínimo */}
+              <label
+                style={{
+                  display: 'flex',
+                  alignItems: 'flex-start',
+                  gap: '0.75rem',
+                  padding: '0.85rem',
+                  borderRadius: 'var(--radius-md)',
+                  border: `2px solid ${tipoPagoSeleccionado === 'MINIMO' ? 'var(--color-warning)' : 'var(--color-border)'}`,
+                  backgroundColor: tipoPagoSeleccionado === 'MINIMO' ? 'var(--color-warning-subtle)' : 'var(--color-surface)',
+                  cursor: 'pointer',
+                }}
+              >
+                <input
+                  type="radio"
+                  name="tipoPago"
+                  checked={tipoPagoSeleccionado === 'MINIMO'}
+                  onChange={() => setTipoPagoSeleccionado('MINIMO')}
+                  style={{ marginTop: '0.25rem' }}
+                />
+                <div style={{ flex: 1 }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <strong style={{ color: 'var(--color-warning-text)', fontSize: '0.925rem' }}>
+                      🟡 Pago Mínimo Obligatorio
+                    </strong>
+                    <span style={{ fontWeight: 800, fontSize: '1.1rem', color: 'var(--color-warning-text)' }}>
+                      {formatMoney(modalPagarTarjeta.pagoMinimo)}
+                    </span>
+                  </div>
+                  <span style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)', display: 'block', marginTop: '2px' }}>
+                    Cubre las cuotas pactadas de compras a plazos para evitar reporte en mora.
+                  </span>
+                </div>
+              </label>
+
+              {/* Opción 3: Abono Libre */}
+              <label
+                style={{
+                  display: 'flex',
+                  alignItems: 'flex-start',
+                  gap: '0.75rem',
+                  padding: '0.85rem',
+                  borderRadius: 'var(--radius-md)',
+                  border: `2px solid ${tipoPagoSeleccionado === 'PERSONALIZADO' ? 'var(--color-primary-light)' : 'var(--color-border)'}`,
+                  backgroundColor: tipoPagoSeleccionado === 'PERSONALIZADO' ? 'var(--color-primary-subtle)' : 'var(--color-surface)',
+                  cursor: 'pointer',
+                }}
+              >
+                <input
+                  type="radio"
+                  name="tipoPago"
+                  checked={tipoPagoSeleccionado === 'PERSONALIZADO'}
+                  onChange={() => setTipoPagoSeleccionado('PERSONALIZADO')}
+                  style={{ marginTop: '0.25rem' }}
+                />
+                <div style={{ flex: 1 }}>
+                  <strong style={{ color: 'var(--color-primary-light)', fontSize: '0.925rem' }}>
+                    ✍️ Abono Libre / Otro Valor
+                  </strong>
+                  {tipoPagoSeleccionado === 'PERSONALIZADO' && (
+                    <div style={{ marginTop: '0.5rem' }}>
+                      <input
+                        type="number"
+                        className="form-input"
+                        placeholder="Ingresa el valor a pagar ($ COP)"
+                        value={montoPersonalizado}
+                        onChange={(e) => setMontoPersonalizado(e.target.value)}
+                        required
+                        autoFocus
+                      />
+                    </div>
+                  )}
+                </div>
+              </label>
+            </div>
+
+            <div className="form-group">
+              <label>Cuenta Bancaria de Débito (De donde sale el dinero):</label>
+              <select className="form-select" value={cuentaPagoId} onChange={(e) => setCuentaPagoId(e.target.value)}>
+                {state.cuentas.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.nombre} (Saldo disponible: {formatMoney(c.saldo)})
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.75rem', marginTop: '0.5rem' }}>
+              <button type="button" className="btn secondary" onClick={() => setModalPagarTarjeta(null)}>
+                Cancelar
+              </button>
+              <button type="submit" className="btn success">
+                Confirmar Pago y Descontar
+              </button>
+            </div>
+          </form>
+        </Modal>
+      )}
+
+      {/* MODAL PAGAR CUOTA INDIVIDUAL */}
       {modalPagarCuota && (
-        <Modal isOpen={Boolean(modalPagarCuota)} onClose={() => setModalPagarCuota(null)} title="✓ Pagar Cuota de Tarjeta">
+        <Modal isOpen={Boolean(modalPagarCuota)} onClose={() => setModalPagarCuota(null)} title="✓ Pagar Cuota de Compra Individual">
           <form onSubmit={confirmarPagoCuota} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
             <div>
               <strong style={{ fontSize: '1.05rem' }}>{modalPagarCuota.descripcion}</strong>

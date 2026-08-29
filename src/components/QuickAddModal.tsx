@@ -1,5 +1,6 @@
 import { useState, type FormEvent } from 'react'
 import { Modal } from './Modal'
+import { DatePickerInput } from './DatePickerInput'
 import { useFinance } from '../context/FinanceContext'
 import { formatMoney } from '../utils/formatters'
 import { calcularCuotaMensual } from '../utils/financialCalculations'
@@ -415,16 +416,13 @@ export function QuickAddModal({ isOpen, onClose }: QuickAddModalProps) {
             />
           </div>
 
-          <div className="form-group">
-            <label>Fecha *</label>
-            <input
-              type="date"
-              className="form-input"
-              value={fecha}
-              onChange={(e) => setFecha(e.target.value)}
-              required
-            />
-          </div>
+          <DatePickerInput
+            label="Fecha del Movimiento"
+            value={fecha}
+            onChange={setFecha}
+            selectedMonthContext={selectedMonth}
+            required
+          />
         </div>
 
         <div className="form-group">

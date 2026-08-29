@@ -5,6 +5,7 @@ import { useAuth } from '../auth/AuthContext'
 import { useTheme } from '../context/ThemeContext'
 import { QuickAddModal } from './QuickAddModal'
 import { ToastContainer } from './Toast'
+import { MonthPicker } from './MonthPicker'
 import { formatMoney, formatCompactMoney } from '../utils/formatters'
 import './Layout.css'
 
@@ -268,15 +269,10 @@ export function Layout() {
               </svg>
             </button>
 
-            <div className="month-selector">
-              <span className="month-label" style={{ color: 'var(--color-text-muted)' }}>Mes:</span>
-              <input
-                type="month"
-                value={selectedMonth}
-                onChange={(e) => setSelectedMonth(e.target.value)}
-                aria-label="Seleccionar mes"
-              />
-            </div>
+            <MonthPicker
+              value={selectedMonth}
+              onChange={setSelectedMonth}
+            />
           </div>
 
           <div className="topbar-right">

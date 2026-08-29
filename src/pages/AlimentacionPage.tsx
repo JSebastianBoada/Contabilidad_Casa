@@ -1,6 +1,7 @@
 import { useState, useMemo, type FormEvent } from 'react'
 import { useFinance } from '../context/FinanceContext'
 import { Modal } from '../components/Modal'
+import { DatePickerInput } from '../components/DatePickerInput'
 import { DonutChart } from '../components/Charts'
 import { formatMoney, formatDate, formatMonthYear } from '../utils/formatters'
 import type { TipoComida, BeneficiarioComida, OrigenComida } from '../types/finance'
@@ -685,21 +686,17 @@ export function AlimentacionPage() {
               />
             </div>
 
-            <div className="form-group">
-              <label>Fecha *</label>
-              <input
-                type="date"
-                className="form-input"
-                value={fecha}
-                onChange={(e) => {
-                  const f = e.target.value
-                  setFecha(f)
-                  const day = new Date(f + 'T00:00:00').getDay()
-                  setEsFinDeSemana(day === 0 || day === 6) // Domingo o Sábado
-                }}
-                required
-              />
-            </div>
+            <DatePickerInput
+              label="Fecha del Consumo"
+              value={fecha}
+              onChange={(f) => {
+                setFecha(f)
+                const day = new Date(f + 'T00:00:00').getDay()
+                setEsFinDeSemana(day === 0 || day === 6)
+              }}
+              selectedMonthContext={selectedMonth}
+              required
+            />
           </div>
 
           <div className="form-group">
