@@ -32,8 +32,9 @@ export function TarjetasPage() {
   const [modalAmortizacion, setModalAmortizacion] = useState<CompraCuota | null>(null)
   const [modalPagarCuota, setModalPagarCuota] = useState<CompraCuota | null>(null)
   const [cuentaPagoId, setCuentaPagoId] = useState(state.cuentas[0]?.id || '')
+  const [filtroPeriodo1Cuota, setFiltroPeriodo1Cuota] = useState<'MES_ACTUAL' | 'TODOS'>('MES_ACTUAL')
 
-  // Consumos a 1 cuota registrados en el mes con tarjeta de crédito
+  // Consumos a 1 cuota registrados con tarjeta de crédito
   const consumos1CuotaMes = useMemo(() => {
     const items: Array<{
       id: string
@@ -45,22 +46,45 @@ export function TarjetasPage() {
       tipoOrigen: 'PERSONAL' | 'ALIMENTACION' | 'HOGAR' | 'SERVICIO'
     }> = []
 
+    const defaultTarjetaId = state.tarjetas[0]?.id || 'tc-1'
+
     state.gastosPersonales
-      .filter((g) => g.fecha.startsWith(selectedMonth) && Boolean(g.tarjetaId))
+      .filter((g) => {
+        const matchFecha = filtroPeriodo1Cuota === 'TODOS' || g.fecha.startsWith(selectedMonth)
+        const matchTarjeta = Boolean(g.tarjetaId) || g.metodoPago === 'TARJETA_CREDITO'
+        return matchFecha && matchTarjeta
+      })
       .forEach((g) => {
         items.push({
           id: g.id,
           fecha: g.fecha,
-          categoria: g.categoria === 'CELULAR' ? '📱 Celular' : g.categoria === 'GASOLINA' ? '⛽ Gasolina' : g.categoria === 'SUSCRIPCIONES' ? '📺 Suscripción' : '🎉 Personal',
+          categoria:
+            g.categoria === 'CELULAR'
+              ? '📱 Celular'
+              : g.categoria === 'GASOLINA'
+              ? '⛽ Gasolina'
+              : g.categoria === 'SUSCRIPCIONES'
+              ? '📺 Suscripción'
+              : g.categoria === 'PARQUEADERO'
+              ? '🅿️ Parqueadero'
+              : g.categoria === 'RESTAURANTES_COMIDAS_FUERA'
+              ? '🍔 Restaurante'
+              : g.categoria === 'TRANSPORTE'
+              ? '🚕 Transporte'
+              : '🎉 Personal',
           descripcion: g.descripcion,
           monto: g.monto,
-          tarjetaId: g.tarjetaId!,
+          tarjetaId: g.tarjetaId || defaultTarjetaId,
           tipoOrigen: 'PERSONAL',
         })
       })
 
     state.alimentacion
-      .filter((a) => a.fecha.startsWith(selectedMonth) && Boolean(a.tarjetaId))
+      .filter((a) => {
+        const matchFecha = filtroPeriodo1Cuota === 'TODOS' || a.fecha.startsWith(selectedMonth)
+        const matchTarjeta = Boolean(a.tarjetaId) || a.metodoPago === 'TARJETA_CREDITO'
+        return matchFecha && matchTarjeta
+      })
       .forEach((a) => {
         items.push({
           id: a.id,
@@ -68,13 +92,17 @@ export function TarjetasPage() {
           categoria: '🍲 Comida',
           descripcion: a.descripcion,
           monto: a.monto,
-          tarjetaId: a.tarjetaId!,
+          tarjetaId: a.tarjetaId || defaultTarjetaId,
           tipoOrigen: 'ALIMENTACION',
         })
       })
 
     state.comprasHogar
-      .filter((c) => c.fecha.startsWith(selectedMonth) && Boolean(c.tarjetaId))
+      .filter((c) => {
+        const matchFecha = filtroPeriodo1Cuota === 'TODOS' || c.fecha.startsWith(selectedMonth)
+        const matchTarjeta = Boolean(c.tarjetaId) || c.metodoPago === 'TARJETA_CREDITO'
+        return matchFecha && matchTarjeta
+      })
       .forEach((c) => {
         items.push({
           id: c.id,
@@ -82,13 +110,13 @@ export function TarjetasPage() {
           categoria: '🏠 Hogar',
           descripcion: c.descripcion,
           monto: c.monto,
-          tarjetaId: c.tarjetaId!,
+          tarjetaId: c.tarjetaId || defaultTarjetaId,
           tipoOrigen: 'HOGAR',
         })
       })
 
     return items.sort((a, b) => b.fecha.localeCompare(a.fecha))
-  }, [state.gastosPersonales, state.alimentacion, state.comprasHogar, selectedMonth])
+  }, [state.gastosPersonales, state.alimentacion, state.comprasHogar, state.tarjetas, selectedMonth, filtroPeriodo1Cuota])
 
   // Form State Tarjeta
   const [nombreTc, setNombreTc] = useState('')
@@ -351,18 +379,38 @@ export function TarjetasPage() {
 
       {/* Panel de Consumos a 1 Cuota del Mes (Facturación Corriente) */}
       <div className="panel">
-        <div className="panel-header">
+        <div className="panel-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.75rem' }}>
           <div>
             <h2 className="panel-title">
-              Consumos del Mes a 1 Cuota ({formatMonthYear(selectedMonth)})
+              💳 Consumos a 1 Cuota con Tarjeta de Crédito
             </h2>
             <span style={{ fontSize: '0.8rem', color: 'var(--color-text-muted)' }}>
-              Servicios mensuales, celular, gasolina y gastos corrientes pagados con tarjeta que se liquidan al corte.
+              Servicios mensuales, celular, gasolina y consumos extraídos del extracto que se pagan a 1 cuota.
             </span>
           </div>
-          <span className="badge credit" style={{ fontSize: '0.85rem' }}>
-            Total 1 Cuota: {formatMoney(totalGastos1CuotaTarjetasMes)}
-          </span>
+          <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', flexWrap: 'wrap' }}>
+            <div className="tabs-nav" style={{ margin: 0 }}>
+              <button
+                type="button"
+                className={`tab-btn ${filtroPeriodo1Cuota === 'MES_ACTUAL' ? 'active' : ''}`}
+                onClick={() => setFiltroPeriodo1Cuota('MES_ACTUAL')}
+                style={{ fontSize: '0.775rem', padding: '0.35rem 0.75rem' }}
+              >
+                📅 {formatMonthYear(selectedMonth)}
+              </button>
+              <button
+                type="button"
+                className={`tab-btn ${filtroPeriodo1Cuota === 'TODOS' ? 'active' : ''}`}
+                onClick={() => setFiltroPeriodo1Cuota('TODOS')}
+                style={{ fontSize: '0.775rem', padding: '0.35rem 0.75rem' }}
+              >
+                📋 Ver Todos los Movimientos
+              </button>
+            </div>
+            <span className="badge credit" style={{ fontSize: '0.85rem' }}>
+              Total: {formatMoney(consumos1CuotaMes.reduce((acc, c) => acc + c.monto, 0))}
+            </span>
+          </div>
         </div>
 
         <div className="table-container">

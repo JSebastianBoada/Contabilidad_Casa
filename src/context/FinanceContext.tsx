@@ -14,6 +14,7 @@ import type {
   CuentaFinanciera,
   GastoAlimentacion,
   GastoPersonal,
+  GastoRecurrenteFijo,
   IngresoPersonal,
   PresupuestoCategoria,
   ServicioPublico,
@@ -88,6 +89,14 @@ interface FinanceContextType {
   addGastoPersonal: (gasto: Omit<GastoPersonal, 'id'>) => void
   deleteGastoPersonal: (id: string) => void
 
+  // Gastos Fijos & Recurrentes
+  addGastoRecurrente: (gasto: Omit<GastoRecurrenteFijo, 'id'>) => void
+  updateGastoRecurrente: (id: string, data: Partial<GastoRecurrenteFijo>) => void
+  deleteGastoRecurrente: (id: string) => void
+  toggleActivoGastoRecurrente: (id: string) => void
+  aplicarGastoRecurrenteAlMes: (recurrenteId: string, mes?: string) => void
+  aplicarTodosRecurrentesPendientes: (mes?: string) => void
+
   addTarjeta: (tarjeta: Omit<TarjetaCredito, 'id'>) => void
   updateTarjeta: (id: string, data: Partial<TarjetaCredito>) => void
   deleteTarjeta: (id: string) => void
@@ -103,6 +112,7 @@ interface FinanceContextType {
     fechaInicioCobro?: string
     notas?: string
   }) => void
+  updateCompraCuota: (id: string, data: Partial<CompraCuota>) => void
   pagarCuotaCompra: (compraId: string, cuentaId?: string) => void
   prepagarCompra: (compraId: string, cuentaId?: string) => void
   deleteCompraCuota: (id: string) => void
@@ -704,6 +714,177 @@ export function FinanceProvider({ children }: { children: ReactNode }) {
     [updateAndSaveState, showToast]
   )
 
+  // ==========================================
+  // GASTOS FIJOS Y RECURRENTES (Suscripciones, Parqueadero, Planes)
+  // ==========================================
+  const addGastoRecurrente = useCallback(
+    (gasto: Omit<GastoRecurrenteFijo, 'id'>) => {
+      const id = `rec-${Date.now()}`
+      updateAndSaveState((prev) => ({
+        ...prev,
+        gastosRecurrentes: [...(prev.gastosRecurrentes || []), { ...gasto, id }],
+      }))
+      showToast('Gasto fijo creado', gasto.nombre)
+    },
+    [updateAndSaveState, showToast]
+  )
+
+  const updateGastoRecurrente = useCallback(
+    (id: string, data: Partial<GastoRecurrenteFijo>) => {
+      updateAndSaveState((prev) => ({
+        ...prev,
+        gastosRecurrentes: (prev.gastosRecurrentes || []).map((r) =>
+          r.id === id ? { ...r, ...data } : r
+        ),
+      }))
+      showToast('Gasto fijo actualizado', 'Datos actualizados correctamente')
+    },
+    [updateAndSaveState, showToast]
+  )
+
+  const deleteGastoRecurrente = useCallback(
+    (id: string) => {
+      updateAndSaveState((prev) => ({
+        ...prev,
+        gastosRecurrentes: (prev.gastosRecurrentes || []).filter((r) => r.id !== id),
+      }))
+      showToast('Gasto fijo eliminado', '', 'warning')
+    },
+    [updateAndSaveState, showToast]
+  )
+
+  const toggleActivoGastoRecurrente = useCallback(
+    (id: string) => {
+      updateAndSaveState((prev) => ({
+        ...prev,
+        gastosRecurrentes: (prev.gastosRecurrentes || []).map((r) =>
+          r.id === id ? { ...r, activo: !r.activo } : r
+        ),
+      }))
+    },
+    [updateAndSaveState]
+  )
+
+  const aplicarGastoRecurrenteAlMes = useCallback(
+    (recurrenteId: string, mes?: string) => {
+      const targetMonth = mes || selectedMonth
+      updateAndSaveState((prev) => {
+        const item = (prev.gastosRecurrentes || []).find((r) => r.id === recurrenteId)
+        if (!item) return prev
+
+        // Verificar si ya fue aplicado en este mes
+        const yaExiste = (prev.gastosPersonales || []).some(
+          (g) => g.fecha.startsWith(targetMonth) && g.recurrenteId === item.id
+        )
+        if (yaExiste) {
+          showToast('Ya registrado', `${item.nombre} ya fue aplicado en ${targetMonth}`, 'info')
+          return prev
+        }
+
+        const dia = String(Math.min(28, Math.max(1, item.diaCobro))).padStart(2, '0')
+        const fecha = `${targetMonth}-${dia}`
+        const isTarjeta = item.metodoPago === 'TARJETA_CREDITO'
+        const id = `gp-rec-${Date.now()}`
+
+        let nextCuentas = prev.cuentas || []
+        if (!isTarjeta && item.cuentaId) {
+          nextCuentas = nextCuentas.map((c) =>
+            c.id === item.cuentaId ? { ...c, saldo: c.saldo - item.monto } : c
+          )
+        }
+
+        const nuevoGasto: GastoPersonal = {
+          id,
+          fecha,
+          categoria: item.categoria,
+          descripcion: item.nombre,
+          monto: item.monto,
+          cuentaId: !isTarjeta ? item.cuentaId : undefined,
+          tarjetaId: isTarjeta ? item.tarjetaId : undefined,
+          metodoPago: item.metodoPago,
+          cuotas: isTarjeta ? 1 : undefined,
+          recurrenteId: item.id,
+          notas: item.notas,
+        }
+
+        showToast('Gasto mensual aplicado', `${item.nombre} registrado para ${targetMonth}`)
+
+        return {
+          ...prev,
+          cuentas: nextCuentas,
+          gastosPersonales: [nuevoGasto, ...(prev.gastosPersonales || [])],
+        }
+      })
+    },
+    [selectedMonth, updateAndSaveState, showToast]
+  )
+
+  const aplicarTodosRecurrentesPendientes = useCallback(
+    (mes?: string) => {
+      const targetMonth = mes || selectedMonth
+      updateAndSaveState((prev) => {
+        const activos = (prev.gastosRecurrentes || []).filter((r) => r.activo)
+        if (activos.length === 0) {
+          showToast('Sin gastos fijos', 'No tienes gastos fijos activos configurados', 'info')
+          return prev
+        }
+
+        const pendientes = activos.filter((r) => {
+          return !(prev.gastosPersonales || []).some(
+            (g) => g.fecha.startsWith(targetMonth) && g.recurrenteId === r.id
+          )
+        })
+
+        if (pendientes.length === 0) {
+          showToast('Al día', `Todos los gastos fijos ya están registrados en ${targetMonth}`, 'info')
+          return prev
+        }
+
+        let nextCuentas = [...(prev.cuentas || [])]
+        const nuevosGastos: GastoPersonal[] = []
+
+        pendientes.forEach((item, index) => {
+          const dia = String(Math.min(28, Math.max(1, item.diaCobro))).padStart(2, '0')
+          const fecha = `${targetMonth}-${dia}`
+          const isTarjeta = item.metodoPago === 'TARJETA_CREDITO'
+          const id = `gp-rec-${Date.now()}-${index}`
+
+          if (!isTarjeta && item.cuentaId) {
+            nextCuentas = nextCuentas.map((c) =>
+              c.id === item.cuentaId ? { ...c, saldo: c.saldo - item.monto } : c
+            )
+          }
+
+          nuevosGastos.push({
+            id,
+            fecha,
+            categoria: item.categoria,
+            descripcion: item.nombre,
+            monto: item.monto,
+            cuentaId: !isTarjeta ? item.cuentaId : undefined,
+            tarjetaId: isTarjeta ? item.tarjetaId : undefined,
+            metodoPago: item.metodoPago,
+            cuotas: isTarjeta ? 1 : undefined,
+            recurrenteId: item.id,
+            notas: item.notas,
+          })
+        })
+
+        showToast(
+          'Gastos fijos aplicados',
+          `Se cargaron ${nuevosGastos.length} gastos automáticos para ${targetMonth}`
+        )
+
+        return {
+          ...prev,
+          cuentas: nextCuentas,
+          gastosPersonales: [...nuevosGastos, ...(prev.gastosPersonales || [])],
+        }
+      })
+    },
+    [selectedMonth, updateAndSaveState, showToast]
+  )
+
   // Tarjetas de Crédito
   const addTarjeta = useCallback(
     (tarjeta: Omit<TarjetaCredito, 'id'>) => {
@@ -788,6 +969,19 @@ export function FinanceProvider({ children }: { children: ReactNode }) {
         'Compra a cuotas registrada',
         `${nuevaCompra.cuotasTotales} cuotas de aprox. $${valorCuota.toLocaleString('es-CO')}`
       )
+    },
+    [updateAndSaveState, showToast]
+  )
+
+  const updateCompraCuota = useCallback(
+    (id: string, data: Partial<CompraCuota>) => {
+      updateAndSaveState((prev) => ({
+        ...prev,
+        comprasCuotas: (prev.comprasCuotas || []).map((c) =>
+          c.id === id ? { ...c, ...data } : c
+        ),
+      }))
+      showToast('Compra a cuotas actualizada', 'Datos sincronizados con el extracto')
     },
     [updateAndSaveState, showToast]
   )
@@ -1052,10 +1246,17 @@ export function FinanceProvider({ children }: { children: ReactNode }) {
         deleteIngreso,
         addGastoPersonal,
         deleteGastoPersonal,
+        addGastoRecurrente,
+        updateGastoRecurrente,
+        deleteGastoRecurrente,
+        toggleActivoGastoRecurrente,
+        aplicarGastoRecurrenteAlMes,
+        aplicarTodosRecurrentesPendientes,
         addTarjeta,
         updateTarjeta,
         deleteTarjeta,
         addCompraCuota,
+        updateCompraCuota,
         pagarCuotaCompra,
         prepagarCompra,
         deleteCompraCuota,

@@ -330,9 +330,10 @@ export function QuickAddModal({ isOpen, onClose }: QuickAddModalProps) {
               value={catPersonal}
               onChange={(e) => setCatPersonal(e.target.value as typeof catPersonal)}
             >
+              <option value="PARQUEADERO">🅿️ Parqueadero / Estacionamiento</option>
               <option value="CELULAR">📱 Servicio de Celular / Plan Móvil</option>
               <option value="GASOLINA">⛽ Gasolina / Combustible / Tanqueo</option>
-              <option value="SUSCRIPCIONES">📺 Suscripciones (Netflix, Spotify, Gym)</option>
+              <option value="SUSCRIPCIONES">📺 Suscripciones (Netflix, Crunchyroll, Spotify, Gym)</option>
               <option value="RESTAURANTES_COMIDAS_FUERA">🍔 Salidas a comer / Restaurantes / Domicilios</option>
               <option value="PARTIDOS_OCIO_EVENTOS">⚽ Partidos / Canchas / Ocio / Eventos / Cine</option>
               <option value="REGALOS">🎁 Regalos y Cumpleaños</option>

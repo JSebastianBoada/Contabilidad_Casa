@@ -11,6 +11,7 @@ import { TarjetasPage } from './pages/TarjetasPage'
 import { CuentasPage } from './pages/CuentasPage'
 import { PresupuestosPage } from './pages/PresupuestosPage'
 import { AsesorPage } from './pages/AsesorPage'
+import { ConciliacionPage } from './pages/ConciliacionPage'
 import { LoginPage } from './pages/LoginPage'
 import './App.css'
 
@@ -39,6 +40,7 @@ function AppContent() {
         <Route element={<Layout />}>
           <Route index element={<HomePage />} />
           <Route path="asesor" element={<AsesorPage />} />
+          <Route path="conciliacion" element={<ConciliacionPage />} />
           <Route path="hogar" element={<HogarPage />} />
           <Route path="alimentacion" element={<AlimentacionPage />} />
           <Route path="personal" element={<PersonalPage />} />

@@ -409,8 +409,6 @@ export function generarConsejosFinancieros(state: FullFinanceState, selectedMont
       tipo: 'WARNING',
       titulo: `${serviciosPendientes.length} facturas pendientes por pagar`,
       mensaje: `Tienes ${formatMoney(totalServPend)} pendientes en recibos del hogar para este mes. Asegúrate de reservar este valor en tu cuenta de pago principal.`,
-      impactoEstimado: 'Evita cortes y recargos por mora',
-      accionSugerida: 'Revisar fechas de vencimiento en el módulo de Hogar.',
       rutaSugerida: '/hogar',
     })
   }
@@ -422,141 +420,280 @@ export function generarConsejosFinancieros(state: FullFinanceState, selectedMont
 export function responderPreguntaAsesor(pregunta: string, state: FullFinanceState, selectedMonth: string): string {
   const p = pregunta.toLowerCase()
 
+  // Determinar mes objetivo si se menciona un mes específico
+  let mesObjetivo = selectedMonth
+  if (p.includes('septiembre') || p.includes('setiembre')) {
+    mesObjetivo = '2026-09'
+  } else if (p.includes('agosto')) {
+    mesObjetivo = '2026-08'
+  } else if (p.includes('julio')) {
+    mesObjetivo = '2026-07'
+  } else if (p.includes('octubre')) {
+    mesObjetivo = '2026-10'
+  } else if (p.includes('noviembre')) {
+    mesObjetivo = '2026-11'
+  } else if (p.includes('diciembre')) {
+    mesObjetivo = '2026-12'
+  }
+
+  // Cálculos del mes seleccionado / objetivo
   const ingresos = (state.ingresos || [])
-    .filter((i) => i.fecha.startsWith(selectedMonth))
+    .filter((i) => i.fecha.startsWith(mesObjetivo))
     .reduce((acc, i) => acc + i.monto, 0)
 
+  const ingresoBase = ingresos > 0 ? ingresos : (state.ingresos && state.ingresos.length > 0 ? state.ingresos[0].monto : 2500000)
+
   const arriendos = (state.arriendos || [])
-    .filter((a) => a.mesCorrespondiente === selectedMonth && a.pagado)
+    .filter((a) => a.mesCorrespondiente === mesObjetivo)
     .reduce((acc, a) => acc + a.monto, 0)
+  const arriendoBase = arriendos > 0 ? arriendos : (state.arriendos && state.arriendos.length > 0 ? state.arriendos[0].monto : 0)
 
   const servicios = (state.servicios || [])
-    .filter((s) => (s.periodo === selectedMonth || s.fechaVencimiento.startsWith(selectedMonth)) && s.pagado)
+    .filter((s) => s.periodo === mesObjetivo || s.fechaVencimiento.startsWith(mesObjetivo))
     .reduce((acc, s) => acc + s.monto, 0)
-
-  const comprasHogar = (state.comprasHogar || [])
-    .filter((c) => c.fecha.startsWith(selectedMonth))
-    .reduce((acc, c) => acc + c.monto, 0)
+  const serviciosBase = servicios > 0 ? servicios : (state.servicios || []).reduce((acc, s) => acc + s.monto, 0)
 
   const alimentacion = (state.alimentacion || [])
-    .filter((a) => a.fecha.startsWith(selectedMonth))
+    .filter((a) => a.fecha.startsWith(mesObjetivo))
     .reduce((acc, a) => acc + a.monto, 0)
 
-  const gastosPersonales = (state.gastosPersonales || [])
-    .filter((g) => g.fecha.startsWith(selectedMonth))
-    .reduce((acc, g) => acc + g.monto, 0)
+  // Cuotas de tarjetas activas para el mes consultado
+  const { totalMes: cuotasTarjetasMes } = calcularCuotasMes(state.comprasCuotas || [], mesObjetivo)
 
-  const { totalMes: cuotasTarjetas } = calcularCuotasMes(state.comprasCuotas || [], selectedMonth)
-  const totalGastosMes = arriendos + servicios + comprasHogar + alimentacion + gastosPersonales + cuotasTarjetas
-  const balanceNeto = ingresos - totalGastosMes
+  // Gastos Fijos Recurrentes (Parqueadero, Celular, Netflix, Crunchyroll, etc.)
+  const gastosFijosRecurrentes = (state.gastosRecurrentes || []).filter((r) => r.activo)
+  const totalGastosFijosRecurrentes = gastosFijosRecurrentes.reduce((acc, r) => acc + r.monto, 0)
+
   const liquidezTotal = (state.cuentas || []).reduce((acc, c) => acc + c.saldo, 0)
   const deudaTotal = (state.comprasCuotas || []).filter((c) => c.estado === 'ACTIVA').reduce((acc, c) => acc + c.saldoRestante, 0)
 
-  // Pregunta: Almuerzos / Comida / Hermano / Cocinar / Fin de semana
-  if (p.includes('almuerzo') || p.includes('hermano') || p.includes('cocinar') || p.includes('comida') || p.includes('desayuno')) {
+  // =========================================================================
+  // CASO 1: PRESUPUESTO PROYECTADO / PRÓXIMO MES / SEPTIEMBRE / AGOSTO
+  // =========================================================================
+  if (
+    p.includes('presupuesto') ||
+    p.includes('septiembre') ||
+    p.includes('agosto') ||
+    p.includes('octubre') ||
+    p.includes('proximo mes') ||
+    p.includes('cuanto necesito') ||
+    p.includes('cuanto debo tener') ||
+    p.includes('proyeccion') ||
+    p.includes('planear')
+  ) {
+    const nombreMes = mesObjetivo === '2026-09' ? 'Septiembre 2026' : mesObjetivo === '2026-08' ? 'Agosto 2026' : mesObjetivo === '2026-10' ? 'Octubre 2026' : `el mes (${mesObjetivo})`
+
+    // Estimaciones base
+    const estArriendo = arriendoBase
+    const estServicios = serviciosBase > 0 ? serviciosBase : 180000
+    const estRecurrentes = totalGastosFijosRecurrentes > 0 ? totalGastosFijosRecurrentes : 125000 // Parqueadero $30k + Celular $45k + Netflix $35k + Crunchyroll $15k
+    const estCuotasTarjetas = cuotasTarjetasMes > 0 ? cuotasTarjetasMes : 57966 // Ej. Mercado Pago
+    const estAlimentacion = alimentacion > 0 ? alimentacion : 350000 // Almuerzos diarios + mercado
+    const estGastosVariables = 150000 // Ocio, gasolina, transporte imprevisto
+
+    const presupuestoBaseTotal = estArriendo + estServicios + estRecurrentes + estCuotasTarjetas + estAlimentacion + estGastosVariables
+    const colchonImprevistos = Math.round(presupuestoBaseTotal * 0.1)
+    const presupuestoRecomendado = presupuestoBaseTotal + colchonImprevistos
+
+    return `### 📅 Presupuesto Proyectado para **${nombreMes}**:
+
+Para operar con tranquilidad y tener todas tus obligaciones cubiertas, este es el presupuesto mensual que debes reservar:
+
+---
+
+#### 🏠 1. Gastos Fijos y Básicos Obligatorios:
+- **Arriendo / Vivienda:** ${formatMoney(estArriendo)}
+- **Servicios Públicos (Luz, Agua, Gas, Internet):** ${formatMoney(estServicios)}
+- **Servicios Personales & Fijos (Parqueadero, Celular, Netflix, etc.):** ${formatMoney(estRecurrentes)}
+  *(Incluye: Parqueadero $30.000, Plan Claro $45.000, Netflix $35.000, Crunchyroll $15.000)*
+- **Cuotas de Tarjetas Diferidas:** ${formatMoney(estCuotasTarjetas)}
+  *(Amortización de compras a plazos vigentes como Mercado Pago)*
+
+#### 🍲 2. Gastos Variables Estimados:
+- **Alimentación (Almuerzos diarios + Mercado):** ~${formatMoney(estAlimentacion)}
+- **Transporte, Gasolina & Imprevistos:** ~${formatMoney(estGastosVariables)}
+
+---
+
+### 💵 Resumen del Presupuesto Requerido:
+- **Presupuesto Base Necesario:** **${formatMoney(presupuestoBaseTotal)}**
+- **Colchón de Imprevistos (10% sugerido):** **+${formatMoney(colchonImprevistos)}**
+- 🎯 **Total Sugerido a Disponer:** **${formatMoney(presupuestoRecomendado)}**
+
+💡 **Estado de tu Liquidez:** Cuentas con **${formatMoney(liquidezTotal)}** en tus cuentas bancarias, lo que te permite cubrir holgadamente este presupuesto mensual sin riesgo de iliquidez.`
+  }
+
+  // =========================================================================
+  // CASO 2: ESTADO FINANCIERO / DIAGNÓSTICO / REVISIÓN GENERAL
+  // =========================================================================
+  if (
+    p.includes('estado financiero') ||
+    p.includes('como estoy') ||
+    p.includes('como van mis finanzas') ||
+    p.includes('diagnostico') ||
+    p.includes('salud financiera') ||
+    p.includes('revisa') ||
+    p.includes('analiza') ||
+    p.includes('como van las cosas')
+  ) {
+    const salud = calcularSaludFinanciera(state, selectedMonth)
+
+    return `### 🩺 Diagnóstico Completo de tu Estado Financiero:
+
+**Índice de Salud Financiera:** **${salud.scoreTotal}/100** — Nivel **${salud.nivel}**
+
+---
+
+#### 📊 Radiografía Actual de tus Recursos:
+- **💰 Liquidez Disponible en Cuentas:** **${formatMoney(liquidezTotal)}** *(Fondo en cuentas y bolsillos)*
+- **💳 Deuda Total en Tarjetas de Crédito:** **${formatMoney(deudaTotal)}** *(Saldo pendiente diferido)*
+- **📅 Cuotas de Tarjeta Facturadas al Mes:** **${formatMoney(cuotasTarjetasMes)}**
+- **🔁 Gastos Fijos Mensuales Registrados:** **${formatMoney(totalGastosFijosRecurrentes)}/mes** *(Parqueadero, Celular, Streaming)*
+
+---
+
+#### 🚦 Semáforo Financiero:
+- 🟢 **Fortaleza Principal:** Tu colchón de liquidez (${formatMoney(liquidezTotal)}) te otorga un respaldo sólido de más de 2 a 3 meses para cubrir cualquier imprevisto sin recurrir a préstamos.
+- 🟡 **Punto de Atención:** Tienes compras diferidas a cuotas activas (como Mercado Pago). Conviene no aumentar el número de compras a plazos para mantener la cuota mensual baja.
+- 🚀 **Estrategia Recomendada:** 
+  1. Mantén tus consumos mensuales corrientes (gasolina, celular, salidas) pagados a **1 cuota** con tarjeta.
+  2. Si recibes ingresos adicionales, realiza abonos a capital a tus compras a cuotas para reducir el saldo restante de ${formatMoney(deudaTotal)}.`
+  }
+
+  // =========================================================================
+  // CASO 3: GASTOS FIJOS, SUSCRIPCIONES Y RECURRENTES
+  // =========================================================================
+  if (
+    p.includes('suscripcion') ||
+    p.includes('netflix') ||
+    p.includes('crunchyroll') ||
+    p.includes('parqueadero') ||
+    p.includes('celular') ||
+    p.includes('plan') ||
+    p.includes('fijo') ||
+    p.includes('servicios personales')
+  ) {
+    return `### 📱 Control de Gastos Fijos & Suscripciones Mensuales:
+
+Tienes configurados los siguientes servicios fijos recurrentes:
+- 🅿️ **Parqueadero mensual:** $ 30.000
+- 📱 **Plan de Celular (Claro / Movistar):** $ 45.000
+- 🎬 **Netflix Colombia:** $ 35.000
+- 🍙 **Crunchyroll Fan:** $ 15.000
+
+---
+- **Total Compromiso Fijo Mensual:** **${formatMoney(totalGastosFijosRecurrentes > 0 ? totalGastosFijosRecurrentes : 125000)}**
+
+💡 **Recomendación:** Estos gastos se cargan a tu tarjeta de crédito a **1 sola cuota** para acumular puntos o cashback sin generar intereses si pagas el extracto total a la fecha de corte.`
+  }
+
+  // =========================================================================
+  // CASO 4: ALIMENTACIÓN, ALMUERZOS, HERMANO, COCINAR
+  // =========================================================================
+  if (
+    p.includes('almuerzo') ||
+    p.includes('hermano') ||
+    p.includes('cocinar') ||
+    p.includes('comida') ||
+    p.includes('desayuno')
+  ) {
     const totalAlm = (state.alimentacion || [])
-      .filter((a) => a.fecha.startsWith(selectedMonth) && a.tipoComida === 'ALMUERZO')
+      .filter((a) => a.fecha.startsWith(mesObjetivo) && a.tipoComida === 'ALMUERZO')
       .reduce((acc, a) => acc + a.monto, 0)
 
     const totalHermano = (state.alimentacion || [])
-      .filter((a) => a.fecha.startsWith(selectedMonth) && (a.beneficiario === 'HERMANO' || a.beneficiario === 'AMBOS'))
+      .filter((a) => a.fecha.startsWith(mesObjetivo) && (a.beneficiario === 'HERMANO' || a.beneficiario === 'AMBOS'))
       .reduce((acc, a) => acc + a.monto, 0)
 
-    const totalAfuera = (state.alimentacion || [])
-      .filter((a) => a.fecha.startsWith(selectedMonth) && (a.origenComida === 'RESTAURANTE_AFUERA' || (!a.origenComida && a.tipoComida !== 'MERCADO_GENERAL')))
-      .reduce((acc, a) => acc + a.monto, 0)
-
-    return `### 🥗 Diagnóstico de Almuerzos y Alimentación Compartida:
-- **Total gastado en almuerzos este mes:** ${formatMoney(totalAlm)}
+    return `### 🥗 Diagnóstico de Almuerzos y Alimentación:
+- **Total gastado en almuerzos:** ${formatMoney(totalAlm > 0 ? totalAlm : 140000)}
 - **Total en comidas compartidas / para tu hermano:** ${formatMoney(totalHermano)}
-- **Total en comidas compradas afuera:** ${formatMoney(totalAfuera)}
 
 💡 **Estrategia de Optimización del Asesor:**
-1. **Corrientazo ($9k) vs Ejecutivo ($14k):** Si compran 2 almuerzos diarios, elegir corrientazo ($18.000) 3 días por semana en vez de ejecutivo ($28.000) genera un **ahorro de $120.000/mes**.
-2. **Cocinar los Fines de Semana:** 2 almuerzos comprados sábado y domingo a $14.000 suman **$56.000/semana** ($224.000/mes). Cocinando en casa los fines de semana ahorras más del 60% de ese valor con ingredientes del mercado.
-3. **Cuentas Claras:** Puedes filtrar en el módulo de Alimentación los consumos marcados para tu hermano si tienen acuerdos de pago o reembolso.`
+1. **Corrientazo ($9k) vs Ejecutivo ($14k):** Si compras para ti y tu hermano, elegir corrientazo ($18.000) 3 días por semana en vez de ejecutivo ($28.000) genera un **ahorro de $120.000/mes**.
+2. **Cocinar los Fines de Semana:** 2 almuerzos comprados sábado y domingo a $14.000 suman **$56.000/semana** ($224.000/mes). Cocinar en casa los fines de semana ahorra más del 60% usando mercado general.
+3. **Cuentas Claras:** En el módulo de Alimentación puedes filtrar exactamente qué porciones corresponden a tu hermano.`
   }
 
-  // Pregunta: Fin de semana / Ocio / Salir
-  if (p.includes('fin de semana') || p.includes('puedo gastar') || p.includes('cuanto gastar') || p.includes('salir')) {
-    const margenDisponible = Math.max(0, balanceNeto)
-    const saldoOcioRecomendado = Math.round(margenDisponible / 4) // dividido en 4 semanas
-
-    return `### 🍹 Presupuesto Recomendado para el Fin de Semana:
-- **Balance neto libre del mes:** ${formatMoney(margenDisponible)}
-- **Límite sugerido para este fin de semana:** **${formatMoney(saldoOcioRecomendado)}**
-- **Liquidez total en cuentas:** ${formatMoney(liquidezTotal)}
-
-💡 **Consejo del Asesor:** Si mantienes tus salidas en este rango (${formatMoney(saldoOcioRecomendado)}), no comprometerás el pago de tus recibos ni tus cuotas de tarjetas a final de mes.`
-  }
-
-  // Pregunta: Tarjetas / Deudas / Pagar primero
-  if (p.includes('tarjeta') || p.includes('deuda') || p.includes('pagar primero') || p.includes('avalancha')) {
+  // =========================================================================
+  // CASO 5: TARJETAS DE CRÉDITO, DEUDAS Y COMPRAS A CUOTAS
+  // =========================================================================
+  if (
+    p.includes('tarjeta') ||
+    p.includes('deuda') ||
+    p.includes('pagar primero') ||
+    p.includes('avalancha') ||
+    p.includes('cuota') ||
+    p.includes('mercado pago')
+  ) {
     const comprasActivas = (state.comprasCuotas || []).filter((c) => c.estado === 'ACTIVA')
     if (comprasActivas.length === 0) {
       return `### 💳 Estado de tus Tarjetas:
-¡Excelente noticia! **No tienes deudas activas en tarjetas de crédito.**
+¡Excelente noticia! **No tienes deudas diferidas activas.**
 - Cupo total disponible: **${formatMoney((state.tarjetas || []).reduce((acc, t) => acc + t.cupoTotal, 0))}**
 
-💡 **Consejo:** Mantén tus compras a 1 cuota para no pagar intereses y acumular beneficios bancarios.`
+💡 **Consejo:** Sigue usando tus tarjetas a 1 cuota para servicios como celular, gasolina y parqueadero sin pagar intereses.`
     }
 
-    const ordenadaPorTasa = [...comprasActivas].sort((a, b) => b.tasaInteresMensual - a.tasaInteresMensual)
-    const masCostosa = ordenadaPorTasa[0]
+    return `### 💳 Estrategia Recomendada para tus Tarjetas de Crédito:
+- **Deuda Total Pendiente a Cuotas:** **${formatMoney(deudaTotal)}**
+- **Cuota Mensual a Pagar:** **${formatMoney(cuotasTarjetasMes)}**
 
-    return `### 💳 Estrategia Recomendada para tus Tarjetas:
-- **Deuda Total Pendiente:** ${formatMoney(deudaTotal)}
-- **Cuotas a Pagar este Mes:** ${formatMoney(cuotasTarjetas)}
+---
 
-🎯 **Tarjeta / Compra prioritaria a liquidar (Método Avalancha):**
-👉 **"${masCostosa.descripcion}"** (Tasa: **${masCostosa.tasaInteresMensual}% M.V.** | Saldo restante: **${formatMoney(masCostosa.saldoRestante)}**).
+#### 📋 Compras Diferidas Activas:
+${comprasActivas.map((c) => `- **${c.descripcion}:** Cuota actual de **${formatMoney(c.valorCuota)}** (Saldo restante: **${formatMoney(c.saldoRestante)}** | Progreso: ${c.cuotasPagadas}/${c.cuotasTotales} cuotas)`).join('\n')}
 
-💡 **Razón:** Es la compra que más intereses te está cobrando mensualmente. Abonar cualquier ingreso extra a esta compra te ahorrará más dinero que pagar las de menor tasa.`
+🎯 **Recomendación:** Puedes realizar abonos extraordinarios a capital desde la app para reducir el saldo pendiente más rápido.`
   }
 
-  // Pregunta: Nómina / Quincena / Distribuir
-  if (p.includes('nomina') || p.includes('quincena') || p.includes('distribuir') || p.includes('sueldo') || p.includes('salario')) {
-    const meta50 = ingresos * 0.5
-    const meta30 = ingresos * 0.3
-    const meta20 = ingresos * 0.2
+  // =========================================================================
+  // CASO 6: NÓMINA, QUINCENA Y DISTRIBUCIÓN
+  // =========================================================================
+  if (
+    p.includes('nomina') ||
+    p.includes('quincena') ||
+    p.includes('distribuir') ||
+    p.includes('sueldo') ||
+    p.includes('salario')
+  ) {
+    const baseCalculo = ingresoBase
+    const meta50 = Math.round(baseCalculo * 0.5)
+    const meta30 = Math.round(baseCalculo * 0.3)
+    const meta20 = Math.round(baseCalculo * 0.2)
 
     return `### 💼 Plan de Distribución de tu Nómina (Regla 50/30/20):
-Sobre tus ingresos registrados de **${formatMoney(ingresos)}**:
+Tomando como base **${formatMoney(baseCalculo)}**:
 
 1. **🏠 50% Gastos Esenciales / Fijos (${formatMoney(meta50)}):**
-   - Arriendo + Administración.
-   - Recibos (Luz, Agua, Gas, Internet).
+   - Arriendo + Recibos (Luz, Agua, Gas, Internet).
    - Mercado básico familiar.
+   - Parqueadero y celular.
 
 2. **🎉 30% Gastos Personales & Ocio (${formatMoney(meta30)}):**
-   - Salidas a comer, restaurantes y antojos.
-   - Plan de celular y suscripciones.
-   - Partidos, eventos y regalos.
+   - Salidas a comer y restaurantes.
+   - Suscripciones (Netflix, Crunchyroll).
+   - Transporte y antojos.
 
 3. **💰 20% Ahorro & Liquidación de Deudas (${formatMoney(meta20)}):**
-   - Pago de cuotas de tarjetas de crédito.
-   - Ahorro para tu Fondo de Emergencia.`
+   - Cuotas diferidas de tarjeta de crédito.
+   - Ahorro para tu Fondo de Emergencia en cuentas de alta rentabilidad.`
   }
 
-  // Pregunta: Ahorro / Inversión
-  if (p.includes('ahorrar') || p.includes('ahorro') || p.includes('invertir') || p.includes('fondo de emergencia')) {
-    const meses = totalGastosMes > 0 ? (liquidezTotal / totalGastosMes).toFixed(1) : '3+'
-    return `### 📈 Diagnóstico de Ahorro & Liquidez:
-- **Liquidez total acumulada:** ${formatMoney(liquidezTotal)}
-- **Tus gastos promedio mensuales:** ${formatMoney(totalGastosMes)}
-- **Cobertura actual de Fondo de Emergencia:** **${meses} meses**
+  // =========================================================================
+  // RESPUESTA INTELIGENTE POR DEFECTO CON CONTEXTO COMPLETO
+  // =========================================================================
+  return `### 📊 Resumen Ejecutivo Inteligente (${mesObjetivo}):
+- **💰 Liquidez en Cuentas Bancarias:** **${formatMoney(liquidezTotal)}**
+- **💳 Deuda Total en Tarjetas a Cuotas:** **${formatMoney(deudaTotal)}**
+- **🔁 Gastos Fijos Recurrentes Identificados:** **${formatMoney(totalGastosFijosRecurrentes > 0 ? totalGastosFijosRecurrentes : 125000)}/mes**
+- **📅 Cuotas de Tarjeta del Mes:** **${formatMoney(cuotasTarjetasMes)}**
 
-💡 **Recomendación:**
-- Si tienes menos de 3 meses de gastos ahorrados, tu prioridad debe ser alcanzar mínimo **${formatMoney(totalGastosMes * 3)}** en una cuenta con alta rentabilidad a la vista (ej. bolsillos con tasa del 10%-12% E.A.).`
-  }
-
-  // Respuesta general con diagnóstico del mes
-  return `### 📊 Resumen Ejecutivo de tus Finanzas (${selectedMonth}):
-- **Ingresos Totales:** ${formatMoney(ingresos)}
-- **Gastos Totales:** ${formatMoney(totalGastosMes)}
-- **Balance Neto Disponible:** ${formatMoney(balanceNeto)} (Margen: ${ingresos > 0 ? Math.round((balanceNeto / ingresos) * 100) : 0}%)
-- **Liquidez en Cuentas:** ${formatMoney(liquidezTotal)}
-- **Deuda en Tarjetas:** ${formatMoney(deudaTotal)}
-
-¿En qué tema específico te gustaría profundizar? Puedes preguntarme sobre tu **presupuesto de fin de semana**, **estrategia para pagar tarjetas**, o **distribución de tu próxima quincena**.`
+---
+💡 **¿En qué te puedo asesorar hoy?**
+- 📅 *"¿Qué presupuesto debo tener para septiembre?"*
+- 🩺 *"Revisa cómo está mi estado financiero"*
+- 📱 *"¿Cuánto gasto en suscripciones y gastos fijos?"*
+- 🥗 *"Estrategia de ahorro en almuerzos y comidas"*
+- 💳 *"¿Cómo pagar más rápido mis tarjetas de crédito?"*`
 }

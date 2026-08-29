@@ -116,11 +116,12 @@ export interface IngresoPersonal {
 export type CategoriaGastoPersonal =
   | 'CELULAR'
   | 'GASOLINA'
+  | 'PARQUEADERO'
+  | 'SUSCRIPCIONES'
   | 'RESTAURANTES_COMIDAS_FUERA'
   | 'PARTIDOS_OCIO_EVENTOS'
   | 'REGALOS'
   | 'ROPA_CUIDADO'
-  | 'SUSCRIPCIONES'
   | 'TRANSPORTE'
   | 'SEGUROS_SALUD'
   | 'OTROS'
@@ -138,6 +139,20 @@ export interface GastoPersonal {
   metodoPago?: MetodoPago
   cuotas?: number // 1 por defecto
   lugar?: string
+  notas?: string
+  recurrenteId?: string // Vinculación con gasto fijo/plantilla
+}
+
+export interface GastoRecurrenteFijo {
+  id: string
+  nombre: string // ej. '🅿️ Parqueadero mensual', '📱 Plan Celular', '🎬 Netflix', '🍙 Crunchyroll'
+  categoria: CategoriaGastoPersonal
+  monto: Dinero
+  diaCobro: number // 1 al 31 (día habitual de cobro del mes)
+  metodoPago: MetodoPago
+  cuentaId?: string
+  tarjetaId?: string
+  activo: boolean
   notas?: string
 }
 
