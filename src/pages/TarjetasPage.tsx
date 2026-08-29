@@ -17,6 +17,8 @@ export function TarjetasPage() {
     cupoTotalTarjetas,
     cupoDisponibleTarjetas,
     totalCuotasTarjetasMes,
+    totalGastos1CuotaTarjetasMes,
+    totalExtractoTarjetasMes,
     addTarjeta,
     deleteTarjeta,
     addCompraCuota,
@@ -30,6 +32,63 @@ export function TarjetasPage() {
   const [modalAmortizacion, setModalAmortizacion] = useState<CompraCuota | null>(null)
   const [modalPagarCuota, setModalPagarCuota] = useState<CompraCuota | null>(null)
   const [cuentaPagoId, setCuentaPagoId] = useState(state.cuentas[0]?.id || '')
+
+  // Consumos a 1 cuota registrados en el mes con tarjeta de crédito
+  const consumos1CuotaMes = useMemo(() => {
+    const items: Array<{
+      id: string
+      fecha: string
+      categoria: string
+      descripcion: string
+      monto: number
+      tarjetaId: string
+      tipoOrigen: 'PERSONAL' | 'ALIMENTACION' | 'HOGAR' | 'SERVICIO'
+    }> = []
+
+    state.gastosPersonales
+      .filter((g) => g.fecha.startsWith(selectedMonth) && Boolean(g.tarjetaId))
+      .forEach((g) => {
+        items.push({
+          id: g.id,
+          fecha: g.fecha,
+          categoria: g.categoria === 'CELULAR' ? '📱 Celular' : g.categoria === 'GASOLINA' ? '⛽ Gasolina' : g.categoria === 'SUSCRIPCIONES' ? '📺 Suscripción' : '🎉 Personal',
+          descripcion: g.descripcion,
+          monto: g.monto,
+          tarjetaId: g.tarjetaId!,
+          tipoOrigen: 'PERSONAL',
+        })
+      })
+
+    state.alimentacion
+      .filter((a) => a.fecha.startsWith(selectedMonth) && Boolean(a.tarjetaId))
+      .forEach((a) => {
+        items.push({
+          id: a.id,
+          fecha: a.fecha,
+          categoria: '🍲 Comida',
+          descripcion: a.descripcion,
+          monto: a.monto,
+          tarjetaId: a.tarjetaId!,
+          tipoOrigen: 'ALIMENTACION',
+        })
+      })
+
+    state.comprasHogar
+      .filter((c) => c.fecha.startsWith(selectedMonth) && Boolean(c.tarjetaId))
+      .forEach((c) => {
+        items.push({
+          id: c.id,
+          fecha: c.fecha,
+          categoria: '🏠 Hogar',
+          descripcion: c.descripcion,
+          monto: c.monto,
+          tarjetaId: c.tarjetaId!,
+          tipoOrigen: 'HOGAR',
+        })
+      })
+
+    return items.sort((a, b) => b.fecha.localeCompare(a.fecha))
+  }, [state.gastosPersonales, state.alimentacion, state.comprasHogar, selectedMonth])
 
   // Form State Tarjeta
   const [nombreTc, setNombreTc] = useState('')
@@ -134,10 +193,11 @@ export function TarjetasPage() {
               <rect x="2" y="5" width="20" height="14" rx="2" />
               <line x1="2" y1="10" x2="22" y2="10" />
             </svg>
-            Tarjetas de Crédito, Deudas & Compras a Cuotas
+            Tarjetas de Crédito, 1 Cuota & Compras Diferidas
           </h1>
           <p>
-            Control de cupos, compras diferidas con motor de amortización de cuotas y proyección de pagos mensuales.
+            Control de cupos, consumos mensuales a 1 cuota (celular, gasolina), compras diferidas y cálculo del extracto total para{' '}
+            <strong>{formatMonthYear(selectedMonth)}</strong>.
           </p>
         </div>
 
@@ -151,29 +211,9 @@ export function TarjetasPage() {
         </div>
       </div>
 
-      {/* KPIs de Crédito */}
+      {/* KPIs de Crédito y Extracto */}
       <div className="stat-grid">
         <article className="stat-card">
-          <div className="stat-card-top">
-            <span className="stat-card-title">Cupo Total Otorgado</span>
-            <span className="badge neutral">Límite Global</span>
-          </div>
-          <div className="stat-value">{formatMoney(cupoTotalTarjetas)}</div>
-          <span className="stat-subtext">Sumatoria de todas tus tarjetas</span>
-        </article>
-
-        <article className="stat-card" style={{ borderLeft: '4px solid var(--color-expense)' }}>
-          <div className="stat-card-top">
-            <span className="stat-card-title">Deuda Total Pendiente</span>
-            <span className="badge expense">Pasivo Actual</span>
-          </div>
-          <div className="stat-value" style={{ color: 'var(--color-expense)' }}>
-            {formatMoney(deudaTotalTarjetas)}
-          </div>
-          <span className="stat-subtext">Saldo pendiente en compras diferidas</span>
-        </article>
-
-        <article className="stat-card" style={{ borderLeft: '4px solid var(--color-income)' }}>
           <div className="stat-card-top">
             <span className="stat-card-title">Cupo Disponible Total</span>
             <span className="badge income">Disponible</span>
@@ -181,18 +221,42 @@ export function TarjetasPage() {
           <div className="stat-value" style={{ color: 'var(--color-income)' }}>
             {formatMoney(cupoDisponibleTarjetas)}
           </div>
-          <span className="stat-subtext">Capacidad restante sin copar</span>
+          <span className="stat-subtext">
+            Deuda diferida: {formatMoney(deudaTotalTarjetas)} / Cupo: {formatMoney(cupoTotalTarjetas)}
+          </span>
         </article>
 
-        <article className="stat-card" style={{ borderLeft: '4px solid var(--color-credit)' }}>
+        <article className="stat-card" style={{ borderLeft: '4px solid #8b5cf6' }}>
           <div className="stat-card-top">
-            <span className="stat-card-title">Cuotas a Pagar este Mes</span>
-            <span className="badge credit">{formatMonthYear(selectedMonth)}</span>
+            <span className="stat-card-title">Consumos 1 Cuota este Mes</span>
+            <span className="badge credit">Mes Corriente</span>
           </div>
           <div className="stat-value" style={{ color: 'var(--color-credit)' }}>
+            {formatMoney(totalGastos1CuotaTarjetasMes)}
+          </div>
+          <span className="stat-subtext">Plan celular, gasolina, suscripciones</span>
+        </article>
+
+        <article className="stat-card" style={{ borderLeft: '4px solid #f59e0b' }}>
+          <div className="stat-card-top">
+            <span className="stat-card-title">Cuotas Diferidas este Mes</span>
+            <span className="badge warning">Compras a Plazos</span>
+          </div>
+          <div className="stat-value" style={{ color: 'var(--color-warning-text)' }}>
             {formatMoney(totalCuotasTarjetasMes)}
           </div>
-          <span className="stat-subtext">Facturación proyectada para este período</span>
+          <span className="stat-subtext">Compras diferidas activas</span>
+        </article>
+
+        <article className="stat-card" style={{ borderLeft: '4px solid var(--color-expense)' }}>
+          <div className="stat-card-top">
+            <span className="stat-card-title">Total Extracto este Mes</span>
+            <span className="badge expense">Total a Pagar</span>
+          </div>
+          <div className="stat-value" style={{ color: 'var(--color-expense)', fontSize: '1.65rem' }}>
+            {formatMoney(totalExtractoTarjetasMes)}
+          </div>
+          <span className="stat-subtext">1 cuota + cuotas diferidas del mes</span>
         </article>
       </div>
 
@@ -210,8 +274,11 @@ export function TarjetasPage() {
             const deudaTc = state.comprasCuotas
               .filter((c) => c.tarjetaId === t.id && c.estado === 'ACTIVA')
               .reduce((acc, c) => acc + c.saldoRestante, 0)
-            const disponibleTc = Math.max(0, t.cupoTotal - deudaTc)
-            const pctUso = t.cupoTotal > 0 ? Math.round((deudaTc / t.cupoTotal) * 100) : 0
+            const consumos1CuotaTc = consumos1CuotaMes
+              .filter((c) => c.tarjetaId === t.id)
+              .reduce((acc, c) => acc + c.monto, 0)
+            const disponibleTc = Math.max(0, t.cupoTotal - deudaTc - consumos1CuotaTc)
+            const pctUso = t.cupoTotal > 0 ? Math.round(((deudaTc + consumos1CuotaTc) / t.cupoTotal) * 100) : 0
 
             return (
               <div key={t.id} style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
@@ -240,8 +307,8 @@ export function TarjetasPage() {
 
                   <div>
                     <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.75rem', marginBottom: '0.35rem' }}>
-                      <span>Deuda: <strong>{formatMoney(deudaTc)}</strong></span>
-                      <span>Disponible: <strong>{formatMoney(disponibleTc)}</strong></span>
+                      <span>Deuda Diferida: <strong>{formatMoney(deudaTc)}</strong></span>
+                      <span>1 Cuota Mes: <strong>{formatMoney(consumos1CuotaTc)}</strong></span>
                     </div>
 
                     <div style={{ width: '100%', height: '6px', backgroundColor: 'rgba(255,255,255,0.25)', borderRadius: '999px', overflow: 'hidden' }}>
@@ -257,7 +324,7 @@ export function TarjetasPage() {
 
                     <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.7rem', marginTop: '0.4rem', opacity: 0.85 }}>
                       <span>Corte: Día {t.diaCorte} | Límite: Día {t.diaLimitePago}</span>
-                      <span>Cupo: {formatMoney(t.cupoTotal)} ({pctUso}% usado)</span>
+                      <span>Disponible: {formatMoney(disponibleTc)}</span>
                     </div>
                   </div>
                 </div>
@@ -279,6 +346,72 @@ export function TarjetasPage() {
               </div>
             )
           })}
+        </div>
+      </div>
+
+      {/* Panel de Consumos a 1 Cuota del Mes (Facturación Corriente) */}
+      <div className="panel">
+        <div className="panel-header">
+          <div>
+            <h2 className="panel-title">
+              Consumos del Mes a 1 Cuota ({formatMonthYear(selectedMonth)})
+            </h2>
+            <span style={{ fontSize: '0.8rem', color: 'var(--color-text-muted)' }}>
+              Servicios mensuales, celular, gasolina y gastos corrientes pagados con tarjeta que se liquidan al corte.
+            </span>
+          </div>
+          <span className="badge credit" style={{ fontSize: '0.85rem' }}>
+            Total 1 Cuota: {formatMoney(totalGastos1CuotaTarjetasMes)}
+          </span>
+        </div>
+
+        <div className="table-container">
+          <table>
+            <thead>
+              <tr>
+                <th>Fecha</th>
+                <th>Concepto / Categoría</th>
+                <th>Descripción</th>
+                <th>Tarjeta Utilizada</th>
+                <th style={{ textAlign: 'right' }}>Monto en Extracto</th>
+              </tr>
+            </thead>
+            <tbody>
+              {consumos1CuotaMes.map((item) => {
+                const tarjeta = state.tarjetas.find((t) => t.id === item.tarjetaId)
+                return (
+                  <tr key={item.id}>
+                    <td style={{ fontSize: '0.8rem', color: 'var(--color-text-muted)' }}>
+                      {formatDate(item.fecha)}
+                    </td>
+                    <td>
+                      <span className="badge neutral" style={{ fontSize: '0.725rem' }}>
+                        {item.categoria}
+                      </span>
+                    </td>
+                    <td>
+                      <strong>{item.descripcion}</strong>
+                    </td>
+                    <td>
+                      <span className="badge credit" style={{ fontSize: '0.725rem' }}>
+                        💳 {tarjeta?.nombre || 'Tarjeta de Crédito'}
+                      </span>
+                    </td>
+                    <td style={{ textAlign: 'right', fontWeight: 600, color: 'var(--color-credit)' }}>
+                      {formatMoney(item.monto)}
+                    </td>
+                  </tr>
+                )
+              })}
+              {consumos1CuotaMes.length === 0 && (
+                <tr>
+                  <td colSpan={5} style={{ textAlign: 'center', padding: '2rem', color: 'var(--color-text-muted)' }}>
+                    No tienes gastos a 1 cuota registrados con tarjeta este mes.
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
         </div>
       </div>
 

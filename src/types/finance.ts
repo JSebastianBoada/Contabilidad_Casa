@@ -24,6 +24,8 @@ export interface ServicioPublico {
   pagado: boolean
   periodo: string // Ej: '2026-08'
   cuentaId?: string
+  tarjetaId?: string
+  metodoPago?: MetodoPago
   consumo?: string // Ej: '180 kWh', '25 m3', '300 Mbps'
   notas?: string
 }
@@ -36,6 +38,8 @@ export interface ArriendoVivienda {
   pagado: boolean
   fechaPago?: string
   cuentaId?: string
+  tarjetaId?: string
+  metodoPago?: MetodoPago
   arrendador?: string
   notas?: string
 }
@@ -56,7 +60,9 @@ export interface CompraHogar {
   descripcion: string
   monto: Dinero
   categoria: CategoriaCompraHogar
-  cuentaId: string
+  cuentaId?: string
+  tarjetaId?: string
+  metodoPago?: MetodoPago
   lugar?: string
   notas?: string
 }
@@ -74,7 +80,9 @@ export interface GastoAlimentacion {
   descripcion: string
   lugarOProveedor?: string
   monto: Dinero
-  cuentaId: string
+  cuentaId?: string
+  tarjetaId?: string
+  metodoPago?: MetodoPago
   esMercadoGrande?: boolean
   beneficiario?: BeneficiarioComida
   numeroPorciones?: number
@@ -107,13 +115,17 @@ export interface IngresoPersonal {
 
 export type CategoriaGastoPersonal =
   | 'CELULAR'
+  | 'GASOLINA'
   | 'RESTAURANTES_COMIDAS_FUERA'
   | 'PARTIDOS_OCIO_EVENTOS'
   | 'REGALOS'
   | 'ROPA_CUIDADO'
   | 'SUSCRIPCIONES'
   | 'TRANSPORTE'
+  | 'SEGUROS_SALUD'
   | 'OTROS'
+
+export type MetodoPago = 'CUENTA_DEBITO' | 'TARJETA_CREDITO'
 
 export interface GastoPersonal {
   id: string
@@ -121,7 +133,10 @@ export interface GastoPersonal {
   categoria: CategoriaGastoPersonal
   descripcion: string
   monto: Dinero
-  cuentaId: string
+  cuentaId?: string
+  tarjetaId?: string
+  metodoPago?: MetodoPago
+  cuotas?: number // 1 por defecto
   lugar?: string
   notas?: string
 }

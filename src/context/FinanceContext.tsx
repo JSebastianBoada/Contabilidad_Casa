@@ -51,6 +51,8 @@ interface FinanceContextType {
   totalAlimentacionMes: number
   totalGastosPersonalesMes: number
   totalCuotasTarjetasMes: number
+  totalGastos1CuotaTarjetasMes: number
+  totalExtractoTarjetasMes: number
   totalGastosMes: number
   balanceNetoMes: number
   saldoLiquidezTotal: number
@@ -267,11 +269,37 @@ export function FinanceProvider({ children }: { children: ReactNode }) {
       .reduce((acc, g) => acc + g.monto, 0)
   }, [state.gastosPersonales, selectedMonth])
 
-  // Total cuotas de tarjetas del mes
+  // Total cuotas de tarjetas del mes (diferidas)
   const totalCuotasTarjetasMes = useMemo(() => {
     const { totalMes } = calcularCuotasMes(state.comprasCuotas || [], selectedMonth)
     return totalMes
   }, [state.comprasCuotas, selectedMonth])
+
+  // Total gastos a 1 cuota pagados con tarjeta de crédito en el mes (Celular, Gasolina, Suscripciones, etc.)
+  const totalGastos1CuotaTarjetasMes = useMemo(() => {
+    const gp1Cuota = (state.gastosPersonales || [])
+      .filter((g) => g.fecha.startsWith(selectedMonth) && Boolean(g.tarjetaId))
+      .reduce((acc, g) => acc + g.monto, 0)
+
+    const alim1Cuota = (state.alimentacion || [])
+      .filter((a) => a.fecha.startsWith(selectedMonth) && Boolean(a.tarjetaId))
+      .reduce((acc, a) => acc + a.monto, 0)
+
+    const hogar1Cuota = (state.comprasHogar || [])
+      .filter((c) => c.fecha.startsWith(selectedMonth) && Boolean(c.tarjetaId))
+      .reduce((acc, c) => acc + c.monto, 0)
+
+    const serv1Cuota = (state.servicios || [])
+      .filter((s) => (s.periodo === selectedMonth || s.fechaVencimiento.startsWith(selectedMonth)) && s.pagado && Boolean(s.tarjetaId))
+      .reduce((acc, s) => acc + s.monto, 0)
+
+    return gp1Cuota + alim1Cuota + hogar1Cuota + serv1Cuota
+  }, [state.gastosPersonales, state.alimentacion, state.comprasHogar, state.servicios, selectedMonth])
+
+  // Total a pagar en el extracto de tarjetas del mes = cuotas diferidas + consumos a 1 cuota
+  const totalExtractoTarjetasMes = useMemo(() => {
+    return totalCuotasTarjetasMes + totalGastos1CuotaTarjetasMes
+  }, [totalCuotasTarjetasMes, totalGastos1CuotaTarjetasMes])
 
   // Total gastos consolidados
   const totalGastosMes = useMemo(() => {
@@ -466,7 +494,7 @@ export function FinanceProvider({ children }: { children: ReactNode }) {
       const id = `serv-${Date.now()}`
       updateAndSaveState((prev) => {
         let nextCuentas = prev.cuentas || []
-        if (servicio.pagado && servicio.cuentaId) {
+        if (servicio.pagado && servicio.cuentaId && !servicio.tarjetaId) {
           nextCuentas = nextCuentas.map((c) =>
             c.id === servicio.cuentaId ? { ...c, saldo: c.saldo - servicio.monto } : c
           )
@@ -503,15 +531,18 @@ export function FinanceProvider({ children }: { children: ReactNode }) {
         const targetCuentaId = cuentaId || item.cuentaId || prev.cuentas[0]?.id
         const fechaPago = nuevoPagado ? new Date().toISOString().slice(0, 10) : undefined
 
-        const nextCuentas = (prev.cuentas || []).map((c) => {
-          if (c.id === targetCuentaId) {
-            return {
-              ...c,
-              saldo: nuevoPagado ? c.saldo - item.monto : c.saldo + item.monto,
+        let nextCuentas = prev.cuentas || []
+        if (!item.tarjetaId) {
+          nextCuentas = nextCuentas.map((c) => {
+            if (c.id === targetCuentaId) {
+              return {
+                ...c,
+                saldo: nuevoPagado ? c.saldo - item.monto : c.saldo + item.monto,
+              }
             }
-          }
-          return c
-        })
+            return c
+          })
+        }
 
         return {
           ...prev,
@@ -549,9 +580,12 @@ export function FinanceProvider({ children }: { children: ReactNode }) {
     (compra: Omit<CompraHogar, 'id'>) => {
       const id = `comp-hogar-${Date.now()}`
       updateAndSaveState((prev) => {
-        const nextCuentas = (prev.cuentas || []).map((c) =>
-          c.id === compra.cuentaId ? { ...c, saldo: c.saldo - compra.monto } : c
-        )
+        let nextCuentas = prev.cuentas || []
+        if (compra.cuentaId && !compra.tarjetaId) {
+          nextCuentas = nextCuentas.map((c) =>
+            c.id === compra.cuentaId ? { ...c, saldo: c.saldo - compra.monto } : c
+          )
+        }
         return {
           ...prev,
           cuentas: nextCuentas,
@@ -579,9 +613,12 @@ export function FinanceProvider({ children }: { children: ReactNode }) {
     (gasto: Omit<GastoAlimentacion, 'id'>) => {
       const id = `alim-${Date.now()}`
       updateAndSaveState((prev) => {
-        const nextCuentas = (prev.cuentas || []).map((c) =>
-          c.id === gasto.cuentaId ? { ...c, saldo: c.saldo - gasto.monto } : c
-        )
+        let nextCuentas = prev.cuentas || []
+        if (gasto.cuentaId && !gasto.tarjetaId) {
+          nextCuentas = nextCuentas.map((c) =>
+            c.id === gasto.cuentaId ? { ...c, saldo: c.saldo - gasto.monto } : c
+          )
+        }
         return {
           ...prev,
           cuentas: nextCuentas,
@@ -639,9 +676,12 @@ export function FinanceProvider({ children }: { children: ReactNode }) {
     (gasto: Omit<GastoPersonal, 'id'>) => {
       const id = `gp-${Date.now()}`
       updateAndSaveState((prev) => {
-        const nextCuentas = (prev.cuentas || []).map((c) =>
-          c.id === gasto.cuentaId ? { ...c, saldo: c.saldo - gasto.monto } : c
-        )
+        let nextCuentas = prev.cuentas || []
+        if (gasto.cuentaId && !gasto.tarjetaId) {
+          nextCuentas = nextCuentas.map((c) =>
+            c.id === gasto.cuentaId ? { ...c, saldo: c.saldo - gasto.monto } : c
+          )
+        }
         return {
           ...prev,
           cuentas: nextCuentas,
@@ -984,6 +1024,8 @@ export function FinanceProvider({ children }: { children: ReactNode }) {
         totalAlimentacionMes,
         totalGastosPersonalesMes,
         totalCuotasTarjetasMes,
+        totalGastos1CuotaTarjetasMes,
+        totalExtractoTarjetasMes,
         totalGastosMes,
         balanceNetoMes,
         saldoLiquidezTotal,

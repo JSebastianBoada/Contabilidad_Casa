@@ -31,12 +31,14 @@ export function PersonalPage() {
   const [cuentaIngresoId, setCuentaIngresoId] = useState(state.cuentas[0]?.id || '')
 
   // Form State Gasto Personal
-  const [catGasto, setCatGasto] = useState<CategoriaGastoPersonal>('RESTAURANTES_COMIDAS_FUERA')
+  const [catGasto, setCatGasto] = useState<CategoriaGastoPersonal>('CELULAR')
   const [descGasto, setDescGasto] = useState('')
   const [montoGasto, setMontoGasto] = useState('')
   const [lugarGasto, setLugarGasto] = useState('')
   const [fechaGasto, setFechaGasto] = useState(new Date().toISOString().slice(0, 10))
-  const [cuentaGastoId, setCuentaGastoId] = useState(state.cuentas[0]?.id || '')
+  const [medioPagoSeleccionado, setMedioPagoSeleccionado] = useState(
+    state.tarjetas.length > 0 ? `tarjeta:${state.tarjetas[0].id}` : state.cuentas[0] ? `cuenta:${state.cuentas[0].id}` : ''
+  )
 
   // Datos filtrados del mes
   const ingresosMes = useMemo(() => {
@@ -48,6 +50,18 @@ export function PersonalPage() {
   }, [state.gastosPersonales, selectedMonth])
 
   // Desglose por categorías clave solicitadas por el usuario
+  const totalCelular = useMemo(() => {
+    return gastosPersonalesMes
+      .filter((g) => g.categoria === 'CELULAR')
+      .reduce((acc, g) => acc + g.monto, 0)
+  }, [gastosPersonalesMes])
+
+  const totalGasolina = useMemo(() => {
+    return gastosPersonalesMes
+      .filter((g) => g.categoria === 'GASOLINA')
+      .reduce((acc, g) => acc + g.monto, 0)
+  }, [gastosPersonalesMes])
+
   const totalRestaurantes = useMemo(() => {
     return gastosPersonalesMes
       .filter((g) => g.categoria === 'RESTAURANTES_COMIDAS_FUERA')
@@ -60,15 +74,9 @@ export function PersonalPage() {
       .reduce((acc, g) => acc + g.monto, 0)
   }, [gastosPersonalesMes])
 
-  const totalCelular = useMemo(() => {
+  const totalTarjeta1CuotaPersonal = useMemo(() => {
     return gastosPersonalesMes
-      .filter((g) => g.categoria === 'CELULAR')
-      .reduce((acc, g) => acc + g.monto, 0)
-  }, [gastosPersonalesMes])
-
-  const totalRegalos = useMemo(() => {
-    return gastosPersonalesMes
-      .filter((g) => g.categoria === 'REGALOS')
+      .filter((g) => Boolean(g.tarjetaId))
       .reduce((acc, g) => acc + g.monto, 0)
   }, [gastosPersonalesMes])
 
@@ -94,19 +102,36 @@ export function PersonalPage() {
     e.preventDefault()
     if (!montoGasto || Number(montoGasto) <= 0) return
 
+    const isTarjeta = medioPagoSeleccionado.startsWith('tarjeta:')
+    const tarjetaId = isTarjeta ? medioPagoSeleccionado.replace('tarjeta:', '') : undefined
+    const cuentaId = !isTarjeta ? medioPagoSeleccionado.replace('cuenta:', '') : undefined
+
     addGastoPersonal({
       fecha: fechaGasto,
       categoria: catGasto,
       descripcion: descGasto || 'Gasto personal',
       monto: Number(montoGasto),
       lugar: lugarGasto || undefined,
-      cuentaId: cuentaGastoId,
+      cuentaId,
+      tarjetaId,
+      metodoPago: isTarjeta ? 'TARJETA_CREDITO' : 'CUENTA_DEBITO',
+      cuotas: isTarjeta ? 1 : undefined,
     })
 
     setDescGasto('')
     setMontoGasto('')
     setLugarGasto('')
     setModalGastoOpen(false)
+  }
+
+  function aplicarPresetGasto(cat: CategoriaGastoPersonal, desc: string, monto: number, defaultTarjeta = true) {
+    setCatGasto(cat)
+    setDescGasto(desc)
+    setMontoGasto(String(monto))
+    if (defaultTarjeta && state.tarjetas.length > 0) {
+      setMedioPagoSeleccionado(`tarjeta:${state.tarjetas[0].id}`)
+    }
+    setModalGastoOpen(true)
   }
 
   return (
@@ -119,10 +144,10 @@ export function PersonalPage() {
               <circle cx="12" cy="7" r="4" />
               <path d="M5.5 21v-2a6.5 6.5 0 0 1 13 0v2" />
             </svg>
-            Finanzas Personales, Nómina & Ocio
+            Finanzas Personales, Celular, Gasolina & Ocio
           </h1>
           <p>
-            Registro de nómina, horas extras, servicios de celular, restaurantes, partidos, regalos y ocio para{' '}
+            Control de nómina, gastos mensuales a 1 cuota con tarjeta de crédito (celular, gasolina, suscripciones) y ocio para{' '}
             <strong>{formatMonthYear(selectedMonth)}</strong>.
           </p>
         </div>
@@ -154,9 +179,46 @@ export function PersonalPage() {
           className={`tab-btn ${activeTab === 'GASTOS_PERSONALES' ? 'active' : ''}`}
           onClick={() => setActiveTab('GASTOS_PERSONALES')}
         >
-          🎉 Gastos Personales, Celular & Ocio ({formatMoney(totalGastosPersonalesMes)})
+          🎉 Gastos Personales, Celular & Gasolina ({formatMoney(totalGastosPersonalesMes)})
         </button>
       </div>
+
+      {/* BARRA DE BOTONES RÁPIDOS PARA SERVICIOS MENSUALES CON TARJETA */}
+      {activeTab === 'GASTOS_PERSONALES' && (
+        <div style={{ backgroundColor: 'var(--color-bg-alt)', padding: '0.85rem 1.25rem', borderRadius: 'var(--radius-lg)', border: '1px solid var(--color-border)', marginBottom: '1.25rem', display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
+          <span style={{ fontSize: '0.825rem', fontWeight: 600, color: 'var(--color-text-muted)' }}>
+            ⚡ Registro Rápido (1 Cuota con Tarjeta):
+          </span>
+          <button
+            type="button"
+            className="btn secondary sm"
+            onClick={() => aplicarPresetGasto('CELULAR', 'Plan Celular Mensual (Claro/Tigo/WOM)', 45000)}
+          >
+            📱 Plan Celular ($45k)
+          </button>
+          <button
+            type="button"
+            className="btn secondary sm"
+            onClick={() => aplicarPresetGasto('GASOLINA', 'Tanqueo de Gasolina / Combustible', 50000)}
+          >
+            ⛽ Gasolina ($50k)
+          </button>
+          <button
+            type="button"
+            className="btn secondary sm"
+            onClick={() => aplicarPresetGasto('GASOLINA', 'Tanqueo de Gasolina / Combustible Lleno', 100000)}
+          >
+            ⛽ Gasolina ($100k)
+          </button>
+          <button
+            type="button"
+            className="btn secondary sm"
+            onClick={() => aplicarPresetGasto('SUSCRIPCIONES', 'Suscripción Streaming (Netflix / Spotify)', 35000)}
+          >
+            📺 Netflix/Spotify ($35k)
+          </button>
+        </div>
+      )}
 
       {/* SUB-KPIs para Gastos Personales */}
       {activeTab === 'GASTOS_PERSONALES' && (
@@ -164,37 +226,37 @@ export function PersonalPage() {
           <article className="stat-card" style={{ borderLeft: '4px solid #3b82f6' }}>
             <div className="stat-card-top">
               <span className="stat-card-title">📱 Celular & Móvil</span>
-              <span className="badge neutral">Servicio</span>
+              <span className="badge neutral">Servicio Mensual</span>
             </div>
             <div className="stat-value">{formatMoney(totalCelular)}</div>
             <span className="stat-subtext">Planes pospago y recargas</span>
           </article>
 
-          <article className="stat-card" style={{ borderLeft: '4px solid #f59e0b' }}>
+          <article className="stat-card" style={{ borderLeft: '4px solid #f97316' }}>
             <div className="stat-card-top">
-              <span className="stat-card-title">🍔 Salir a Comer</span>
-              <span className="badge neutral">Restaurantes</span>
+              <span className="stat-card-title">⛽ Gasolina & Tanqueo</span>
+              <span className="badge neutral">Combustible</span>
             </div>
-            <div className="stat-value">{formatMoney(totalRestaurantes)}</div>
-            <span className="stat-subtext">Restaurantes, cafés y domicilios</span>
+            <div className="stat-value">{formatMoney(totalGasolina)}</div>
+            <span className="stat-subtext">Tanqueadas de moto / carro</span>
+          </article>
+
+          <article className="stat-card" style={{ borderLeft: '4px solid #8b5cf6' }}>
+            <div className="stat-card-top">
+              <span className="stat-card-title">💳 Con Tarjeta (1 Cuota)</span>
+              <span className="badge credit">Extracto Mes</span>
+            </div>
+            <div className="stat-value" style={{ color: 'var(--color-credit)' }}>{formatMoney(totalTarjeta1CuotaPersonal)}</div>
+            <span className="stat-subtext">Pagado a 1 cuota corriente</span>
           </article>
 
           <article className="stat-card" style={{ borderLeft: '4px solid #10b981' }}>
             <div className="stat-card-top">
-              <span className="stat-card-title">⚽ Partidos & Ocio</span>
+              <span className="stat-card-title">⚽ Ocio & Salidas</span>
               <span className="badge neutral">Entretenimiento</span>
             </div>
-            <div className="stat-value">{formatMoney(totalPartidosOcio)}</div>
-            <span className="stat-subtext">Fútbol, cine, eventos y amigos</span>
-          </article>
-
-          <article className="stat-card" style={{ borderLeft: '4px solid #ec4899' }}>
-            <div className="stat-card-top">
-              <span className="stat-card-title">🎁 Regalos</span>
-              <span className="badge neutral">Detalles</span>
-            </div>
-            <div className="stat-value">{formatMoney(totalRegalos)}</div>
-            <span className="stat-subtext">Cumpleaños y fechas especiales</span>
+            <div className="stat-value">{formatMoney(totalRestaurantes + totalPartidosOcio)}</div>
+            <span className="stat-subtext">Restaurantes, fútbol y cine</span>
           </article>
         </div>
       )}
@@ -277,7 +339,7 @@ export function PersonalPage() {
       {activeTab === 'GASTOS_PERSONALES' && (
         <div className="panel">
           <div className="panel-header">
-            <h2 className="panel-title">Gastos Personales, Celular & Ocio ({formatMonthYear(selectedMonth)})</h2>
+            <h2 className="panel-title">Gastos Personales, Celular & Gasolina ({formatMonthYear(selectedMonth)})</h2>
             <button type="button" className="btn primary sm" onClick={() => setModalGastoOpen(true)}>
               + Registrar Gasto
             </button>
@@ -299,12 +361,17 @@ export function PersonalPage() {
               <tbody>
                 {gastosPersonalesMes.map((gp) => {
                   const cuenta = state.cuentas.find((c) => c.id === gp.cuentaId)
+                  const tarjeta = state.tarjetas.find((t) => t.id === gp.tarjetaId)
+
                   let catBadge = 'neutral'
                   let catLabel = gp.categoria.replace(/_/g, ' ')
                   if (gp.categoria === 'CELULAR') { catBadge = 'primary'; catLabel = '📱 Celular'; }
-                  if (gp.categoria === 'RESTAURANTES_COMIDAS_FUERA') { catBadge = 'warning'; catLabel = '🍔 Restaurantes'; }
-                  if (gp.categoria === 'PARTIDOS_OCIO_EVENTOS') { catBadge = 'income'; catLabel = '⚽ Partidos / Ocio'; }
+                  if (gp.categoria === 'GASOLINA') { catBadge = 'warning'; catLabel = '⛽ Gasolina'; }
+                  if (gp.categoria === 'SUSCRIPCIONES') { catBadge = 'credit'; catLabel = '📺 Suscripciones'; }
+                  if (gp.categoria === 'RESTAURANTES_COMIDAS_FUERA') { catBadge = 'income'; catLabel = '🍔 Restaurantes'; }
+                  if (gp.categoria === 'PARTIDOS_OCIO_EVENTOS') { catBadge = 'primary'; catLabel = '⚽ Partidos / Ocio'; }
                   if (gp.categoria === 'REGALOS') { catBadge = 'credit'; catLabel = '🎁 Regalos'; }
+                  if (gp.categoria === 'SEGUROS_SALUD') { catBadge = 'warning'; catLabel = '🛡️ Salud / Seguro'; }
 
                   return (
                     <tr key={gp.id}>
@@ -316,7 +383,17 @@ export function PersonalPage() {
                       </td>
                       <td><strong>{gp.descripcion}</strong></td>
                       <td style={{ color: 'var(--color-text-muted)' }}>{gp.lugar || '—'}</td>
-                      <td>{cuenta?.nombre || 'Efectivo'}</td>
+                      <td>
+                        {tarjeta ? (
+                          <span className="badge credit" style={{ fontSize: '0.725rem' }}>
+                            💳 {tarjeta.nombre} (1 cuota)
+                          </span>
+                        ) : (
+                          <span className="badge neutral" style={{ fontSize: '0.725rem' }}>
+                            🏦 {cuenta?.nombre || 'Efectivo / Cuenta'}
+                          </span>
+                        )}
+                      </td>
                       <td style={{ textAlign: 'right', fontWeight: 600, color: 'var(--color-expense)' }}>
                         - {formatMoney(gp.monto)}
                       </td>
@@ -446,12 +523,14 @@ export function PersonalPage() {
               onChange={(e) => setCatGasto(e.target.value as typeof catGasto)}
             >
               <option value="CELULAR">📱 Servicio de Celular / Plan Móvil</option>
+              <option value="GASOLINA">⛽ Gasolina / Combustible / Tanqueo</option>
+              <option value="SUSCRIPCIONES">📺 Suscripciones (Netflix, Spotify, Gym, iCloud)</option>
               <option value="RESTAURANTES_COMIDAS_FUERA">🍔 Salidas a comer / Restaurantes / Domicilios</option>
               <option value="PARTIDOS_OCIO_EVENTOS">⚽ Partidos / Canchas sintéticas / Fútbol / Eventos / Cine</option>
               <option value="REGALOS">🎁 Regalos (Cumpleaños, aniversarios, detalles)</option>
-              <option value="SUSCRIPCIONES">📺 Suscripciones (Netflix, Spotify, Gym)</option>
               <option value="ROPA_CUIDADO">👕 Ropa, Peluquería & Cuidado Personal</option>
-              <option value="TRANSPORTE">🚕 Taxi / Uber / Gasolina Personal</option>
+              <option value="TRANSPORTE">🚕 Taxi / Uber / Pasajes</option>
+              <option value="SEGUROS_SALUD">🛡️ Seguro de Vida / Medicina Prepagada / Farmacia</option>
               <option value="OTROS">Otros Gastos Personales</option>
             </select>
           </div>
@@ -461,7 +540,7 @@ export function PersonalPage() {
             <input
               type="text"
               className="form-input"
-              placeholder="Ej: Plan Claro 50GB, Salida a comer hamburguesas, Cancha de fútbol"
+              placeholder="Ej: Plan Claro 50GB, Tanqueada de Gasolina, Salida El Corral"
               value={descGasto}
               onChange={(e) => setDescGasto(e.target.value)}
               required
@@ -493,23 +572,46 @@ export function PersonalPage() {
               <input
                 type="text"
                 className="form-input"
-                placeholder="Ej: Canchas La 10, Restaurante El Corral"
+                placeholder="Ej: Estación Terpel, Claro, Netflix, Canchas La 10"
                 value={lugarGasto}
                 onChange={(e) => setLugarGasto(e.target.value)}
               />
             </div>
 
             <div className="form-group">
-              <label>Medio de Pago</label>
-              <select className="form-select" value={cuentaGastoId} onChange={(e) => setCuentaGastoId(e.target.value)}>
-                {state.cuentas.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.nombre} (Saldo: {formatMoney(c.saldo)})
-                  </option>
-                ))}
+              <label>Medio de Pago *</label>
+              <select
+                className="form-select"
+                value={medioPagoSeleccionado}
+                onChange={(e) => setMedioPagoSeleccionado(e.target.value)}
+              >
+                {state.tarjetas.length > 0 && (
+                  <optgroup label="💳 Tarjetas de Crédito (1 Cuota - Mes a Mes)">
+                    {state.tarjetas.map((t) => (
+                      <option key={t.id} value={`tarjeta:${t.id}`}>
+                        💳 {t.nombre} (•••• {t.ultimos4Digitos}) - 1 Cuota
+                      </option>
+                    ))}
+                  </optgroup>
+                )}
+                {state.cuentas.length > 0 && (
+                  <optgroup label="🏦 Cuentas de Ahorros / Billeteras">
+                    {state.cuentas.map((c) => (
+                      <option key={c.id} value={`cuenta:${c.id}`}>
+                        🏦 {c.nombre} (Saldo: {formatMoney(c.saldo)})
+                      </option>
+                    ))}
+                  </optgroup>
+                )}
               </select>
             </div>
           </div>
+
+          {medioPagoSeleccionado.startsWith('tarjeta:') && (
+            <div className="banner info" style={{ fontSize: '0.8rem', padding: '0.6rem 0.85rem' }}>
+              ℹ️ Pagado con <strong>Tarjeta a 1 cuota</strong>: Se incluirá en tus gastos del mes y en el extracto de tu tarjeta sin restar saldo bancario de inmediato.
+            </div>
+          )}
 
           <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.75rem', marginTop: '0.5rem' }}>
             <button type="button" className="btn secondary" onClick={() => setModalGastoOpen(false)}>
