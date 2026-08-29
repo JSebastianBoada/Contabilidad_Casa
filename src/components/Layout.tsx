@@ -103,6 +103,21 @@ export function Layout() {
             <span>Dashboard 360°</span>
           </NavLink>
 
+          <NavLink
+            to="/asesor"
+            className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`}
+            onClick={() => setSidebarOpen(false)}
+          >
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M12 2a4 4 0 0 1 4 4v2a4 4 0 0 1-8 0V6a4 4 0 0 1 4-4z" />
+              <rect x="3" y="10" width="18" height="12" rx="4" />
+              <circle cx="9" cy="15" r="1.5" />
+              <circle cx="15" cy="15" r="1.5" />
+              <line x1="9" y1="19" x2="15" y2="19" />
+            </svg>
+            <span>🤖 Asesor Financiero</span>
+          </NavLink>
+
           <span className="nav-section-label">Hogar y Familia</span>
           <NavLink
             to="/hogar"
