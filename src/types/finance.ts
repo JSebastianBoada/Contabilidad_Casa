@@ -63,6 +63,10 @@ export interface CompraHogar {
 
 export type TipoComida = 'DESAYUNO' | 'ALMUERZO' | 'COMIDA' | 'MERCADO_GENERAL'
 
+export type BeneficiarioComida = 'YO' | 'HERMANO' | 'AMBOS' | 'FAMILIA'
+
+export type OrigenComida = 'RESTAURANTE_AFUERA' | 'COCINADO_EN_CASA'
+
 export interface GastoAlimentacion {
   id: string
   fecha: string
@@ -72,6 +76,12 @@ export interface GastoAlimentacion {
   monto: Dinero
   cuentaId: string
   esMercadoGrande?: boolean
+  beneficiario?: BeneficiarioComida
+  numeroPorciones?: number
+  precioUnitario?: number
+  origenComida?: OrigenComida
+  esFinDeSemana?: boolean
+  reembolsado?: boolean
   notas?: string
 }
 

@@ -513,6 +513,14 @@ export function AsesorPage() {
               type="button"
               className="btn secondary sm"
               style={{ fontSize: '0.75rem', whiteSpace: 'nowrap' }}
+              onClick={() => handleEnviarPregunta('¿Cómo van los gastos de almuerzos, comidas con mi hermano y fines de semana?')}
+            >
+              🥗 Almuerzos & Hermano
+            </button>
+            <button
+              type="button"
+              className="btn secondary sm"
+              style={{ fontSize: '0.75rem', whiteSpace: 'nowrap' }}
               onClick={() => handleEnviarPregunta('¿Cuánto puedo gastar este fin de semana sin afectar mis recibos?')}
             >
               🍹 Fin de semana

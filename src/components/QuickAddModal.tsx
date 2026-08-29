@@ -30,7 +30,8 @@ export function QuickAddModal({ isOpen, onClose }: QuickAddModalProps) {
   const [cuentaId, setCuentaId] = useState(state.cuentas[0]?.id || '')
 
   // Specific subcategories
-  const [tipoComida, setTipoComida] = useState<'DESAYUNO' | 'ALMUERZO' | 'COMIDA' | 'MERCADO_GENERAL'>('DESAYUNO')
+  const [tipoComida, setTipoComida] = useState<'DESAYUNO' | 'ALMUERZO' | 'COMIDA' | 'MERCADO_GENERAL'>('ALMUERZO')
+  const [beneficiarioComida, setBeneficiarioComida] = useState<'YO' | 'HERMANO' | 'AMBOS' | 'FAMILIA'>('AMBOS')
   const [subHogar, setSubHogar] = useState<'COMPRA' | 'SERVICIO'>('COMPRA')
   const [categoriaHogar, setCategoriaHogar] = useState<'ASEO' | 'MANTENIMIENTO' | 'ELECTRODOMESTICOS' | 'MUEBLES' | 'OTRO'>('ASEO')
   const [tipoServicio, setTipoServicio] = useState<'ENERGIA' | 'GAS' | 'AGUA' | 'INTERNET' | 'OTRO'>('ENERGIA')
@@ -55,6 +56,9 @@ export function QuickAddModal({ isOpen, onClose }: QuickAddModalProps) {
         monto: numericMonto,
         cuentaId,
         esMercadoGrande: tipoComida === 'MERCADO_GENERAL',
+        beneficiario: beneficiarioComida,
+        numeroPorciones: beneficiarioComida === 'AMBOS' ? 2 : 1,
+        precioUnitario: beneficiarioComida === 'AMBOS' ? Math.round(numericMonto / 2) : numericMonto,
       })
     } else if (category === 'HOGAR') {
       if (subHogar === 'COMPRA') {
@@ -167,18 +171,92 @@ export function QuickAddModal({ isOpen, onClose }: QuickAddModalProps) {
 
         {/* Campos Condicionales según Categoría */}
         {category === 'ALIMENTACION' && (
-          <div className="form-group">
-            <label>Tipo de Alimentación</label>
-            <select
-              className="form-select"
-              value={tipoComida}
-              onChange={(e) => setTipoComida(e.target.value as typeof tipoComida)}
-            >
-              <option value="DESAYUNO">🍳 Desayuno / Panadería / Cafés</option>
-              <option value="ALMUERZO">🥗 Almuerzo / Ingredientes del mediodía</option>
-              <option value="COMIDA">🍲 Comida / Cena en casa</option>
-              <option value="MERCADO_GENERAL">🛒 Mercado Grande (Supermercado / Quincena)</option>
-            </select>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.85rem' }}>
+            {/* Presets rápidos de 1 clic */}
+            <div style={{ display: 'flex', gap: '0.4rem', flexWrap: 'wrap' }}>
+              <button
+                type="button"
+                className="btn secondary sm"
+                style={{ fontSize: '0.725rem' }}
+                onClick={() => {
+                  setTipoComida('ALMUERZO')
+                  setBeneficiarioComida('YO')
+                  setMonto('9000')
+                  setDescripcion('1 Almuerzo Corrientazo (Yo)')
+                }}
+              >
+                👤 1 Corrientazo ($9k)
+              </button>
+              <button
+                type="button"
+                className="btn secondary sm"
+                style={{ fontSize: '0.725rem' }}
+                onClick={() => {
+                  setTipoComida('ALMUERZO')
+                  setBeneficiarioComida('YO')
+                  setMonto('14000')
+                  setDescripcion('1 Almuerzo Ejecutivo (Yo)')
+                }}
+              >
+                👤 1 Ejecutivo ($14k)
+              </button>
+              <button
+                type="button"
+                className="btn primary sm"
+                style={{ fontSize: '0.725rem' }}
+                onClick={() => {
+                  setTipoComida('ALMUERZO')
+                  setBeneficiarioComida('AMBOS')
+                  setMonto('18000')
+                  setDescripcion('2 Almuerzos Corrientazos (Yo + Hermano)')
+                }}
+              >
+                👥 2 Corrientazos ($18k)
+              </button>
+              <button
+                type="button"
+                className="btn primary sm"
+                style={{ fontSize: '0.725rem' }}
+                onClick={() => {
+                  setTipoComida('ALMUERZO')
+                  setBeneficiarioComida('AMBOS')
+                  setMonto('28000')
+                  setDescripcion('2 Almuerzos Ejecutivos (Yo + Hermano)')
+                }}
+              >
+                👥 2 Ejecutivos ($28k)
+              </button>
+            </div>
+
+            <div className="form-grid">
+              <div className="form-group">
+                <label>Tipo de Alimentación</label>
+                <select
+                  className="form-select"
+                  value={tipoComida}
+                  onChange={(e) => setTipoComida(e.target.value as typeof tipoComida)}
+                >
+                  <option value="ALMUERZO">🥗 Almuerzo / Menú del día</option>
+                  <option value="DESAYUNO">🍳 Desayuno / Panadería / Cafés</option>
+                  <option value="COMIDA">🍲 Comida / Cena en casa</option>
+                  <option value="MERCADO_GENERAL">🛒 Mercado Grande (Supermercado)</option>
+                </select>
+              </div>
+
+              <div className="form-group">
+                <label>¿Para quién es?</label>
+                <select
+                  className="form-select"
+                  value={beneficiarioComida}
+                  onChange={(e) => setBeneficiarioComida(e.target.value as typeof beneficiarioComida)}
+                >
+                  <option value="AMBOS">👥 Ambos (Yo + Mi hermano)</option>
+                  <option value="YO">👤 Solo para mí</option>
+                  <option value="HERMANO">👦 Para mi hermano</option>
+                  <option value="FAMILIA">👨‍👩‍👧 Familiar</option>
+                </select>
+              </div>
+            </div>
           </div>
         )}
 

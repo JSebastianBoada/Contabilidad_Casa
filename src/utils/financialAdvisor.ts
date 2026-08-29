@@ -452,6 +452,31 @@ export function responderPreguntaAsesor(pregunta: string, state: FullFinanceStat
   const liquidezTotal = (state.cuentas || []).reduce((acc, c) => acc + c.saldo, 0)
   const deudaTotal = (state.comprasCuotas || []).filter((c) => c.estado === 'ACTIVA').reduce((acc, c) => acc + c.saldoRestante, 0)
 
+  // Pregunta: Almuerzos / Comida / Hermano / Cocinar / Fin de semana
+  if (p.includes('almuerzo') || p.includes('hermano') || p.includes('cocinar') || p.includes('comida') || p.includes('desayuno')) {
+    const totalAlm = (state.alimentacion || [])
+      .filter((a) => a.fecha.startsWith(selectedMonth) && a.tipoComida === 'ALMUERZO')
+      .reduce((acc, a) => acc + a.monto, 0)
+
+    const totalHermano = (state.alimentacion || [])
+      .filter((a) => a.fecha.startsWith(selectedMonth) && (a.beneficiario === 'HERMANO' || a.beneficiario === 'AMBOS'))
+      .reduce((acc, a) => acc + a.monto, 0)
+
+    const totalAfuera = (state.alimentacion || [])
+      .filter((a) => a.fecha.startsWith(selectedMonth) && (a.origenComida === 'RESTAURANTE_AFUERA' || (!a.origenComida && a.tipoComida !== 'MERCADO_GENERAL')))
+      .reduce((acc, a) => acc + a.monto, 0)
+
+    return `### 🥗 Diagnóstico de Almuerzos y Alimentación Compartida:
+- **Total gastado en almuerzos este mes:** ${formatMoney(totalAlm)}
+- **Total en comidas compartidas / para tu hermano:** ${formatMoney(totalHermano)}
+- **Total en comidas compradas afuera:** ${formatMoney(totalAfuera)}
+
+💡 **Estrategia de Optimización del Asesor:**
+1. **Corrientazo ($9k) vs Ejecutivo ($14k):** Si compran 2 almuerzos diarios, elegir corrientazo ($18.000) 3 días por semana en vez de ejecutivo ($28.000) genera un **ahorro de $120.000/mes**.
+2. **Cocinar los Fines de Semana:** 2 almuerzos comprados sábado y domingo a $14.000 suman **$56.000/semana** ($224.000/mes). Cocinando en casa los fines de semana ahorras más del 60% de ese valor con ingredientes del mercado.
+3. **Cuentas Claras:** Puedes filtrar en el módulo de Alimentación los consumos marcados para tu hermano si tienen acuerdos de pago o reembolso.`
+  }
+
   // Pregunta: Fin de semana / Ocio / Salir
   if (p.includes('fin de semana') || p.includes('puedo gastar') || p.includes('cuanto gastar') || p.includes('salir')) {
     const margenDisponible = Math.max(0, balanceNeto)
