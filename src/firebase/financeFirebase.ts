@@ -9,6 +9,11 @@ import {
 import { getDb, isFirebaseConfigured } from './config'
 import type { FullFinanceState } from '../services/storageService'
 
+// Helper to recursively strip undefined properties so Firestore never throws 'Unsupported field value: undefined'
+function sanitizeForFirestore<T>(data: T): T {
+  return JSON.parse(JSON.stringify(data))
+}
+
 export const firebaseFinanceService = {
   async saveToFirestore(state: FullFinanceState, userId?: string): Promise<void> {
     if (!isFirebaseConfigured() || !userId) return
@@ -16,8 +21,9 @@ export const firebaseFinanceService = {
       const db = getDb()
       const docPath = `usuarios/${userId}`
       const docRef = doc(db, docPath)
+      const sanitized = sanitizeForFirestore(state)
       await setDoc(docRef, {
-        ...state,
+        ...sanitized,
         serverTime: serverTimestamp(),
       })
     } catch (err) {

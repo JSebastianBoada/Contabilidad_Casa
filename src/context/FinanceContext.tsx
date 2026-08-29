@@ -122,12 +122,28 @@ export function FinanceProvider({ children }: { children: ReactNode }) {
   const { user } = useAuth()
   const userId = user?.uid
 
-  const [state, setState] = useState<FullFinanceState>(() => storageService.createEmptyState())
+  const [state, setState] = useState<FullFinanceState>(() => {
+    const local = storageService.loadLocalState(userId)
+    if (local && Array.isArray(local.cuentas)) {
+      return local
+    }
+    return storageService.createEmptyState()
+  })
   const today = new Date()
   const defaultMonth = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}`
   const [selectedMonth, setSelectedMonth] = useState<string>(defaultMonth)
   const [toasts, setToasts] = useState<ToastInfo[]>([])
   const [isFirebaseActive, setIsFirebaseActive] = useState(isFirebaseConfigured())
+
+  // Cargar datos locales inmediatamente cuando el usuario esté disponible
+  useEffect(() => {
+    if (userId) {
+      const local = storageService.loadLocalState(userId)
+      if (local && Array.isArray(local.cuentas) && local.cuentas.length > 0) {
+        setState(local)
+      }
+    }
+  }, [userId])
 
   const showToast = useCallback(
     (title: string, message?: string, type: 'success' | 'info' | 'warning' | 'error' = 'success') => {
@@ -144,21 +160,26 @@ export function FinanceProvider({ children }: { children: ReactNode }) {
     setToasts((prev) => prev.filter((t) => t.id !== id))
   }, [])
 
-  // Guardar exclusivamente en Cloud Firestore para el usuario autenticado
+  // Guardar inmediatamente en almacenamiento local y sincronizar en Cloud Firestore
   const updateAndSaveState = useCallback(
     (updater: (prevState: FullFinanceState) => FullFinanceState) => {
       setState((prev) => {
         const next = updater(prev)
+        
+        // 1. Guardar de forma síncrona e inmediata en LocalStorage
+        storageService.saveLocalState(next, userId)
+
+        // 2. Sincronizar en la nube si Firebase está configurado
         if (userId && isFirebaseConfigured()) {
           firebaseFinanceService.saveToFirestore(next, userId).catch((err) => {
             console.error('Error guardando en Firestore:', err)
-            showToast('Error de sincronización', 'No se pudo guardar en Firebase', 'error')
+            // No bloquea la experiencia del usuario porque ya está seguro en el almacenamiento local
           })
         }
         return next
       })
     },
-    [userId, showToast]
+    [userId]
   )
 
   // Suscripción en tiempo real a Cloud Firestore
@@ -172,30 +193,37 @@ export function FinanceProvider({ children }: { children: ReactNode }) {
     const unsubscribe = firebaseFinanceService.subscribeToFinanceState(
       userId,
       (remoteState) => {
-        if (remoteState && Array.isArray(remoteState.cuentas)) {
-          setState(remoteState)
+        if (remoteState && typeof remoteState === 'object') {
+          const merged: FullFinanceState = {
+            ...storageService.createEmptyState(),
+            ...remoteState,
+          }
+          setState(merged)
+          storageService.saveLocalState(merged, userId)
           setIsFirebaseActive(true)
         } else if (remoteState === null) {
           // Documento inicial nuevo en Firestore para este usuario
-          const initialEmpty = storageService.createEmptyState()
-          setState(initialEmpty)
-          firebaseFinanceService.saveToFirestore(initialEmpty, userId).catch((err) => {
+          const local = storageService.loadLocalState(userId)
+          const initial = local || storageService.createEmptyState()
+          setState(initial)
+          storageService.saveLocalState(initial, userId)
+          firebaseFinanceService.saveToFirestore(initial, userId).catch((err) => {
             console.error('Error inicializando usuario en Firestore:', err)
           })
           setIsFirebaseActive(true)
         }
       },
       (error) => {
-        console.error('Error en listener de Firestore:', error)
+        console.warn('Listener de Firestore en modo offline/fallback local:', error)
         setIsFirebaseActive(false)
-        showToast('Conexión Firestore', error.message || 'Error de sincronización', 'error')
       }
     )
 
     return () => {
       if (unsubscribe) unsubscribe()
     }
-  }, [userId, showToast])
+  }, [userId])
+
 
   // ==========================================
   // CÁLCULOS AGREGADOS DEL MES SELECCIONADO
@@ -854,28 +882,30 @@ export function FinanceProvider({ children }: { children: ReactNode }) {
     [updateAndSaveState, showToast]
   )
 
-  // Limpiar toda la base de datos en Firestore y reiniciar en blanco
+  // Limpiar toda la base de datos y reiniciar en blanco
   const clearAllData = useCallback(() => {
     const clean = storageService.createEmptyState()
     setState(clean)
+    storageService.saveLocalState(clean, userId)
     if (userId && isFirebaseConfigured()) {
       firebaseFinanceService.saveToFirestore(clean, userId).catch((err) => {
         console.error('Error al limpiar Firestore:', err)
       })
     }
-    showToast('Datos limpiados', 'Tu cuenta en Firebase está ahora en blanco para tus datos reales', 'info')
+    showToast('Datos limpiados', 'Tu cuenta está ahora en blanco para tus datos reales', 'info')
   }, [userId, showToast])
 
-  // Cargar plantilla de datos de prueba directamente a Firestore
+  // Cargar plantilla de datos de prueba
   const loadSampleData = useCallback(() => {
     const sample = storageService.createSampleState()
     setState(sample)
+    storageService.saveLocalState(sample, userId)
     if (userId && isFirebaseConfigured()) {
       firebaseFinanceService.saveToFirestore(sample, userId).catch((err) => {
         console.error('Error al cargar datos de muestra en Firestore:', err)
       })
     }
-    showToast('Datos de prueba cargados', 'Se cargaron los ejemplos en Firebase Firestore', 'info')
+    showToast('Datos de prueba cargados', 'Se cargaron los ejemplos de finanzas', 'info')
   }, [userId, showToast])
 
   const resetData = useCallback(() => {
@@ -899,12 +929,13 @@ export function FinanceProvider({ children }: { children: ReactNode }) {
       try {
         const imported = storageService.parseBackupJson(jsonStr)
         setState(imported)
+        storageService.saveLocalState(imported, userId)
         if (userId && isFirebaseConfigured()) {
           firebaseFinanceService.saveToFirestore(imported, userId).catch((err) => {
             console.error('Error guardando backup en Firestore:', err)
           })
         }
-        showToast('Copia restaurada', 'Datos importados y sincronizados en Firebase')
+        showToast('Copia restaurada', 'Datos importados y guardados correctamente')
       } catch (err) {
         showToast(
           'Error al importar',

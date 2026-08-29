@@ -1112,3 +1112,94 @@ tbody tr:hover {
   to { transform: rotate(360deg); }
 }
 
+/* ==========================================================================
+   Ajustes y Reglas Específicas para Modo Oscuro (Dark Theme)
+   ========================================================================== */
+:root[data-theme='dark'] tbody tr:hover {
+  background-color: var(--color-surface-hover);
+}
+
+:root[data-theme='dark'] .alert-bills-card {
+  background: linear-gradient(135deg, rgba(40, 28, 10, 0.8) 0%, rgba(25, 18, 8, 0.95) 100%);
+  border-color: rgba(245, 158, 11, 0.35);
+  box-shadow: 0 4px 18px rgba(0, 0, 0, 0.4);
+}
+
+:root[data-theme='dark'] .alert-bills-title {
+  color: #fde68a;
+}
+
+:root[data-theme='dark'] .alert-bills-icon {
+  background-color: rgba(245, 158, 11, 0.2);
+  color: #f59e0b;
+}
+
+:root[data-theme='dark'] .alert-bill-item {
+  background: var(--color-surface);
+  border-color: rgba(245, 158, 11, 0.3);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+}
+
+:root[data-theme='dark'] .alert-bill-item:hover {
+  border-color: #f59e0b;
+}
+
+:root[data-theme='dark'] .alert-bill-emoji {
+  background-color: var(--color-bg-alt);
+}
+
+:root[data-theme='dark'] .service-due-tag.expired {
+  background-color: rgba(244, 63, 94, 0.2);
+  color: #fda4af;
+}
+
+:root[data-theme='dark'] .service-due-tag.soon {
+  background-color: rgba(245, 158, 11, 0.2);
+  color: #fcd34d;
+}
+
+:root[data-theme='dark'] .service-due-tag.ok {
+  background-color: rgba(16, 185, 129, 0.2);
+  color: #6ee7b7;
+}
+
+:root[data-theme='dark'] .banner.warning {
+  background-color: rgba(245, 158, 11, 0.12);
+  border-color: rgba(245, 158, 11, 0.3);
+  color: #fde68a;
+}
+
+:root[data-theme='dark'] .banner.info {
+  background-color: rgba(59, 130, 246, 0.12);
+  border-color: rgba(59, 130, 246, 0.3);
+  color: #93c5fd;
+}
+
+:root[data-theme='dark'] .banner.success {
+  background-color: rgba(16, 185, 129, 0.12);
+  border-color: rgba(16, 185, 129, 0.3);
+  color: #86efac;
+}
+
+:root[data-theme='dark'] .btn.danger {
+  background-color: rgba(244, 63, 94, 0.15);
+  color: #fda4af;
+  border-color: rgba(244, 63, 94, 0.3);
+}
+
+:root[data-theme='dark'] .btn.danger:hover {
+  background-color: rgba(244, 63, 94, 0.25);
+  color: #ffffff;
+}
+
+:root[data-theme='dark'] .login-shell {
+  background: radial-gradient(circle at 50% 20%, rgba(16, 185, 129, 0.14) 0%, #0b0f19 75%);
+}
+
+:root[data-theme='dark'] .login-card {
+  background: var(--color-surface);
+  border-color: var(--color-border);
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.6);
+}
+
+

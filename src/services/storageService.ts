@@ -86,6 +86,37 @@ export const storageService = {
     }
   },
 
+  getLocalStorageKey(userId?: string): string {
+    return userId ? `contabilidad_state_${userId}` : 'contabilidad_state_global'
+  },
+
+  loadLocalState(userId?: string): FullFinanceState | null {
+    try {
+      const key = this.getLocalStorageKey(userId)
+      const raw = localStorage.getItem(key)
+      if (!raw) return null
+      const parsed = JSON.parse(raw) as FullFinanceState
+      if (parsed && Array.isArray(parsed.cuentas)) {
+        return {
+          ...this.createEmptyState(),
+          ...parsed,
+        }
+      }
+    } catch (e) {
+      console.warn('Error cargando estado de localStorage:', e)
+    }
+    return null
+  },
+
+  saveLocalState(state: FullFinanceState, userId?: string): void {
+    try {
+      const key = this.getLocalStorageKey(userId)
+      localStorage.setItem(key, JSON.stringify(state))
+    } catch (e) {
+      console.warn('Error guardando estado en localStorage:', e)
+    }
+  },
+
   exportBackupJson(state: FullFinanceState): string {
     return JSON.stringify(state, null, 2)
   },
@@ -102,3 +133,4 @@ export const storageService = {
     }
   },
 }
+
