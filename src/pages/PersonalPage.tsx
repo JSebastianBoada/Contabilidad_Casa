@@ -1099,9 +1099,19 @@ export function PersonalPage() {
             <select
               className="form-select"
               value={tipoIngreso}
-              onChange={(e) => setTipoIngreso(e.target.value as typeof tipoIngreso)}
+              onChange={(e) => {
+                const val = e.target.value as typeof tipoIngreso
+                setTipoIngreso(val)
+                if (val === 'APORTE_HERMANO' || val === 'ALMUERZOS_HERMANO') {
+                  const hermanoAcc = state.cuentas.find((c) => c.id === 'cuenta-hermano' || c.nombre.toLowerCase().includes('hermano'))
+                  if (hermanoAcc) setCuentaIngresoId(hermanoAcc.id)
+                  if (!descIngreso) setDescIngreso('Plata almuerzos / aporte hermano')
+                }
+              }}
             >
               <option value="NOMINA">💼 Nómina / Sueldo Fijo</option>
+              <option value="APORTE_HERMANO">👦 Aporte / Envío de Hermano (Almuerzos & Gastos)</option>
+              <option value="APORTE_MAMA">👩‍👧 Aporte / Apoyo de Mamá (Comida / Hogar)</option>
               <option value="HORAS_EXTRAS">⏰ Horas Extras / Recargos</option>
               <option value="BONIFICACION">🌟 Bonificación</option>
               <option value="FREELANCE">💻 Trabajo Independiente / Freelance</option>

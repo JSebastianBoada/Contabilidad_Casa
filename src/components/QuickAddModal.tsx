@@ -39,7 +39,7 @@ export function QuickAddModal({ isOpen, onClose }: QuickAddModalProps) {
   const [categoriaHogar, setCategoriaHogar] = useState<'ASEO' | 'MANTENIMIENTO' | 'ELECTRODOMESTICOS' | 'MUEBLES' | 'OTRO'>('ASEO')
   const [tipoServicio, setTipoServicio] = useState<'ENERGIA' | 'GAS' | 'AGUA' | 'INTERNET' | 'OTRO'>('ENERGIA')
   const [catPersonal, setCatPersonal] = useState<'CELULAR' | 'GASOLINA' | 'RESTAURANTES_COMIDAS_FUERA' | 'PARTIDOS_OCIO_EVENTOS' | 'REGALOS' | 'SUSCRIPCIONES' | 'OTROS'>('CELULAR')
-  const [tipoIngreso, setTipoIngreso] = useState<'NOMINA' | 'HORAS_EXTRAS' | 'BONIFICACION' | 'FREELANCE' | 'OTRO'>('NOMINA')
+  const [tipoIngreso, setTipoIngreso] = useState<'NOMINA' | 'APORTE_MAMA' | 'APORTE_HERMANO' | 'ALMUERZOS_HERMANO' | 'HORAS_EXTRAS' | 'BONIFICACION' | 'FREELANCE' | 'OTRO'>('NOMINA')
 
   // Tarjetas
   const [tarjetaId, setTarjetaId] = useState(state.tarjetas[0]?.id || '')
@@ -349,9 +349,19 @@ export function QuickAddModal({ isOpen, onClose }: QuickAddModalProps) {
             <select
               className="form-select"
               value={tipoIngreso}
-              onChange={(e) => setTipoIngreso(e.target.value as typeof tipoIngreso)}
+              onChange={(e) => {
+                const val = e.target.value as typeof tipoIngreso
+                setTipoIngreso(val)
+                if (val === 'APORTE_HERMANO' || val === 'ALMUERZOS_HERMANO') {
+                  const hermanoAcc = state.cuentas.find((c) => c.id === 'cuenta-hermano' || c.nombre.toLowerCase().includes('hermano'))
+                  if (hermanoAcc) setMedioPago(`cuenta:${hermanoAcc.id}`)
+                  if (!descripcion) setDescripcion('Plata almuerzos / aporte hermano')
+                }
+              }}
             >
               <option value="NOMINA">💼 Nómina / Salario Fijo</option>
+              <option value="APORTE_HERMANO">👦 Aporte / Envío de Hermano (Almuerzos & Gastos)</option>
+              <option value="APORTE_MAMA">👩‍👧 Aporte / Apoyo de Mamá (Comida / Hogar)</option>
               <option value="HORAS_EXTRAS">⏰ Horas Extras / Recargos</option>
               <option value="BONIFICACION">🌟 Bonificación</option>
               <option value="FREELANCE">💻 Trabajo Independiente / Freelance</option>

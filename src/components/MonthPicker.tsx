@@ -186,31 +186,51 @@ export function MonthPicker({ value, onChange, label }: MonthPickerProps) {
           className="month-picker-dropdown"
           style={{
             position: 'absolute',
-            top: 'calc(100% + 6px)',
+            top: 'calc(100% + 8px)',
             left: 0,
             zIndex: 9999,
             backgroundColor: 'var(--color-surface)',
-            border: '1px solid var(--color-border)',
+            border: '1px solid var(--color-border-strong)',
             borderRadius: 'var(--radius-lg)',
-            padding: '0.85rem',
-            boxShadow: 'var(--shadow-lg)',
-            width: '270px',
+            padding: '1rem',
+            boxShadow: 'var(--shadow-xl)',
+            width: '290px',
+            maxWidth: 'calc(100vw - 2rem)',
+            backdropFilter: 'blur(12px)',
             animation: 'fadeIn 0.15s ease-out',
           }}
         >
           {/* Header del Selector de Año */}
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.75rem', paddingBottom: '0.5rem', borderBottom: '1px solid var(--color-border)' }}>
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              marginBottom: '0.85rem',
+              paddingBottom: '0.65rem',
+              borderBottom: '1px solid var(--color-border)',
+            }}
+          >
             <button
               type="button"
               className="btn ghost sm icon-only"
               onClick={() => setPickerYear((prev) => prev - 1)}
               title="Año anterior"
+              aria-label="Año anterior"
             >
-              <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2.2">
+              <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2.4">
                 <polyline points="15 18 9 12 15 6" />
               </svg>
             </button>
-            <strong style={{ fontSize: '1rem', color: 'var(--color-text-main)', letterSpacing: '0.02em' }}>
+            <strong
+              style={{
+                fontFamily: 'var(--font-display)',
+                fontSize: '1.05rem',
+                fontWeight: 700,
+                color: 'var(--color-text-main)',
+                letterSpacing: '0.04em',
+              }}
+            >
               {pickerYear}
             </strong>
             <button
@@ -218,15 +238,23 @@ export function MonthPicker({ value, onChange, label }: MonthPickerProps) {
               className="btn ghost sm icon-only"
               onClick={() => setPickerYear((prev) => prev + 1)}
               title="Año siguiente"
+              aria-label="Año siguiente"
             >
-              <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2.2">
+              <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2.4">
                 <polyline points="9 18 15 12 9 6" />
               </svg>
             </button>
           </div>
 
           {/* Grid de 12 Meses */}
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '0.4rem', marginBottom: '0.75rem' }}>
+          <div
+            style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(3, 1fr)',
+              gap: '0.45rem',
+              marginBottom: '0.85rem',
+            }}
+          >
             {MESES.map((m) => {
               const isSelected = `${pickerYear}-${m.num}` === value
               const isCurrentCalendarMonth = `${pickerYear}-${m.num}` === hoyStr
@@ -237,38 +265,77 @@ export function MonthPicker({ value, onChange, label }: MonthPickerProps) {
                   type="button"
                   onClick={() => handleSelectMonth(m.num)}
                   style={{
-                    padding: '0.5rem 0.25rem',
+                    padding: '0.55rem 0.3rem',
                     borderRadius: 'var(--radius-md)',
-                    fontSize: '0.8rem',
-                    fontWeight: isSelected ? 700 : 500,
+                    fontSize: '0.825rem',
+                    fontWeight: isSelected ? 700 : isCurrentCalendarMonth ? 600 : 500,
                     textAlign: 'center',
-                    backgroundColor: isSelected ? 'var(--color-primary-light)' : isCurrentCalendarMonth ? 'var(--color-bg-alt)' : 'transparent',
-                    color: isSelected ? '#ffffff' : 'var(--color-text-main)',
-                    border: isSelected ? 'none' : isCurrentCalendarMonth ? '1px solid var(--color-border)' : '1px solid transparent',
+                    backgroundColor: isSelected
+                      ? 'var(--color-primary-light)'
+                      : isCurrentCalendarMonth
+                      ? 'var(--color-bg-alt)'
+                      : 'transparent',
+                    color: isSelected
+                      ? '#ffffff'
+                      : isCurrentCalendarMonth
+                      ? 'var(--color-primary-light)'
+                      : 'var(--color-text-main)',
+                    border: isSelected
+                      ? '1px solid var(--color-primary-light)'
+                      : isCurrentCalendarMonth
+                      ? '1px solid var(--color-primary-border)'
+                      : '1px solid transparent',
+                    cursor: 'pointer',
                     transition: 'all 0.15s ease',
                   }}
                   onMouseEnter={(e) => {
-                    if (!isSelected) (e.currentTarget as HTMLElement).style.backgroundColor = 'var(--color-bg-alt)'
+                    if (!isSelected) {
+                      e.currentTarget.style.backgroundColor = 'var(--color-bg-alt)'
+                      e.currentTarget.style.borderColor = 'var(--color-border)'
+                    }
                   }}
                   onMouseLeave={(e) => {
-                    if (!isSelected) (e.currentTarget as HTMLElement).style.backgroundColor = isCurrentCalendarMonth ? 'var(--color-bg-alt)' : 'transparent'
+                    if (!isSelected) {
+                      e.currentTarget.style.backgroundColor = isCurrentCalendarMonth
+                        ? 'var(--color-bg-alt)'
+                        : 'transparent'
+                      e.currentTarget.style.borderColor = isCurrentCalendarMonth
+                        ? 'var(--color-primary-border)'
+                        : 'transparent'
+                    }
                   }}
                 >
-                  {m.corto}
+                  {m.nombre}
                 </button>
               )
             })}
           </div>
 
           {/* Botón rápido "Mes Actual" */}
-          <div style={{ display: 'flex', justifyContent: 'center', borderTop: '1px solid var(--color-border)', paddingTop: '0.5rem' }}>
+          <div
+            style={{
+              display: 'flex',
+              justifyContent: 'center',
+              borderTop: '1px solid var(--color-border)',
+              paddingTop: '0.65rem',
+            }}
+          >
             <button
               type="button"
               onClick={handleIrAMesActual}
               className="btn secondary sm"
-              style={{ width: '100%', fontSize: '0.75rem', padding: '0.35rem' }}
+              style={{
+                width: '100%',
+                fontSize: '0.78rem',
+                fontWeight: 600,
+                padding: '0.45rem',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '0.4rem',
+              }}
             >
-              ⚡ Ir a Mes Actual ({formatMonthYear(hoyStr)})
+              ⚡ Ir al mes actual ({formatMonthYear(hoyStr)})
             </button>
           </div>
         </div>

@@ -87,3 +87,33 @@ export function getDaysRemaining(targetDateStr: string): {
     label: `Vence en ${diffDays} días`,
   }
 }
+
+/**
+ * Limpiar y deduplicar textos de fecha provenientes de extractos (ej. "sep. 02, 2026 sep. 02, 2026" -> "sep. 02, 2026")
+ */
+export function cleanDateText(raw: string | undefined): string {
+  if (!raw) return ''
+  const s = raw.trim()
+
+  // 1. Extraer formato de mes en texto: "sep. 02, 2026" o "septiembre 02, 2026"
+  const m1 = s.match(/(?:ene|feb|mar|abr|may|jun|jul|ago|sep|oct|nov|dic)[a-z]*\.?\s*\d{1,2}(?:,\s*|\s+)\d{4}/i)
+  if (m1) return m1[0].trim()
+
+  // 2. Extraer formato de día primero: "02 de sep de 2026" o "02 sep 2026"
+  const m2 = s.match(/\d{1,2}\s*(?:de\s+)?(?:ene|feb|mar|abr|may|jun|jul|ago|sep|oct|nov|dic)[a-z]*\.?\s*(?:de\s+)?\d{4}/i)
+  if (m2) return m2[0].trim()
+
+  // 3. Extraer formato numérico: "02/09/2026" o "2026-09-02"
+  const m3 = s.match(/\d{1,2}[-/]\d{1,2}[-/]\d{4}/) || s.match(/\d{4}[-/]\d{1,2}[-/]\d{1,2}/)
+  if (m3) return m3[0].trim()
+
+  // 4. Deduplicar palabras consecutivas o frases repetidas
+  const words = s.split(/\s+/)
+  const uniqueWords: string[] = []
+  for (const w of words) {
+    if (uniqueWords.length === 0 || uniqueWords[uniqueWords.length - 1] !== w) {
+      uniqueWords.push(w)
+    }
+  }
+  return uniqueWords.join(' ')
+}

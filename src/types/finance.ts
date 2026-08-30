@@ -14,6 +14,8 @@ export interface CuentaFinanciera {
 
 export type TipoServicioPublico = 'ENERGIA' | 'GAS' | 'AGUA' | 'INTERNET' | 'OTRO'
 
+export type ResponsableGastoHogar = 'YO' | 'MAMA' | 'COMPARTIDO'
+
 export interface ServicioPublico {
   id: string
   tipo: TipoServicioPublico
@@ -26,6 +28,8 @@ export interface ServicioPublico {
   cuentaId?: string
   tarjetaId?: string
   metodoPago?: MetodoPago
+  responsablePago?: ResponsableGastoHogar // 'MAMA' por defecto para servicios
+  esEstimado?: boolean // Si aún no llega el recibo y es aproximado
   consumo?: string // Ej: '180 kWh', '25 m3', '300 Mbps'
   notas?: string
 }
@@ -40,6 +44,7 @@ export interface ArriendoVivienda {
   cuentaId?: string
   tarjetaId?: string
   metodoPago?: MetodoPago
+  responsablePago?: ResponsableGastoHogar // 'YO' por defecto para arriendo
   arrendador?: string
   notas?: string
 }
@@ -89,6 +94,7 @@ export interface GastoAlimentacion {
   precioUnitario?: number
   origenComida?: OrigenComida
   esFinDeSemana?: boolean
+  financiadoPor?: 'YO' | 'APORTE_MAMA' | 'COMPARTIDO'
   reembolsado?: boolean
   notas?: string
 }
@@ -98,6 +104,9 @@ export type TipoIngreso =
   | 'HORAS_EXTRAS'
   | 'BONIFICACION'
   | 'FREELANCE'
+  | 'APORTE_MAMA'
+  | 'APORTE_HERMANO'
+  | 'ALMUERZOS_HERMANO'
   | 'RENDIMIENTOS'
   | 'REGALO'
   | 'OTRO'
@@ -169,6 +178,14 @@ export interface TarjetaCredito {
   diaLimitePago: number // 1 al 31
   tasaInteresMensual: number // % mensual (ej: 2.1% o 0)
   color: string
+  ultimoExtracto?: {
+    periodoFacturado?: string
+    pagoTotal?: number
+    pagoMinimo?: number
+    pagarAntesDe?: string
+    cupoDisponible?: number
+    deudaCorte?: number
+  }
 }
 
 export interface PagoCuotaDetalle {

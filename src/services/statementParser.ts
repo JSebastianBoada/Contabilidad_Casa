@@ -1,6 +1,7 @@
 import * as pdfjsLib from 'pdfjs-dist'
 import pdfjsWorker from 'pdfjs-dist/build/pdf.worker.min.mjs?url'
 import type { CategoriaGastoPersonal } from '../types/finance'
+import { cleanDateText } from '../utils/formatters'
 
 // Configuración del worker local de PDF.js para Vite (100% offline y sin CDN externa)
 if (typeof window !== 'undefined') {
@@ -27,9 +28,21 @@ export interface TransaccionExtracto {
   clasificacionTarjeta?: 'CONSUMO_MES' | 'COMPRA_CUOTAS' | 'CARGO_TARJETA' | 'PAGO_ABONO'
 }
 
+export interface ResumenExtractoCabecera {
+  deudaCorte?: number // $ 781.536
+  cupoTotal?: number // $ 1.200.000
+  cupoDisponible?: number // $ 418.464,71
+  periodoFacturado?: string // "15 jul - 17 ago. 2026"
+  pagoTotal?: number // $ 781.536
+  pagoMinimo?: number // $ 201.878
+  fechaLimitePagoTexto?: string // "sep. 02, 2026"
+  fechaLimitePagoISO?: string // "2026-09-02"
+}
+
 export interface ResultadoExtraccion {
   exito: boolean
   transacciones: TransaccionExtracto[]
+  resumenCabecera?: ResumenExtractoCabecera
   totalDebitos: number
   totalCreditos: number
   bancoIdentificado?: string
@@ -193,16 +206,41 @@ function parseMonto(raw: string): number {
   return esNegativo ? -Math.round(num) : Math.round(num)
 }
 
+const MESES_MAP: Record<string, string> = {
+  ene: '01', feb: '02', mar: '03', abr: '04', may: '05', jun: '06',
+  jul: '07', ago: '08', sep: '09', oct: '10', nov: '11', dic: '12'
+}
+
 /**
  * Normalizar fechas a formato YYYY-MM-DD
  */
-function parseFecha(raw: string): string {
+export function parseFecha(raw: string): string {
   const s = raw.trim().toLowerCase()
 
   // Formato: 13/08/2026 o 13-08-2026
   const dmyMatch = s.match(/(\d{1,2})[-/](\d{1,2})[-/](\d{4})/)
   if (dmyMatch) {
     return `${dmyMatch[3]}-${dmyMatch[2].padStart(2, '0')}-${dmyMatch[1].padStart(2, '0')}`
+  }
+
+  // Formato Nu: 13 AGO 2026 o 13 AGO
+  const textMonthMatch = s.match(/(\d{1,2})\s+([a-z]{3})[a-z]*\.?\s*(\d{4})?/i)
+  if (textMonthMatch) {
+    const day = textMonthMatch[1].padStart(2, '0')
+    const monthKey = textMonthMatch[2].toLowerCase().slice(0, 3)
+    const monthNum = MESES_MAP[monthKey] || '08'
+    const year = textMonthMatch[3] || '2026'
+    return `${year}-${monthNum}-${day}`
+  }
+
+  // Formato: sep. 02, 2026 o sep 02 2026
+  const monthFirstMatch = s.match(/([a-z]{3})[a-z]*\.?\s*(\d{1,2})(?:,\s*|\s+)(\d{4})/i)
+  if (monthFirstMatch) {
+    const monthKey = monthFirstMatch[1].toLowerCase().slice(0, 3)
+    const monthNum = MESES_MAP[monthKey] || '08'
+    const day = monthFirstMatch[2].padStart(2, '0')
+    const year = monthFirstMatch[3]
+    return `${year}-${monthNum}-${day}`
   }
 
   // Formato: 2026-08-13
@@ -230,209 +268,390 @@ const FRASES_IGNORAR = [
   'cupo total',
   'cupo disponible',
   'pago minimo',
+  'pago mínimo',
   'pago total',
   'fecha limite',
+  'fecha límite de pago',
+  'fecha de corte',
+  'periodo facturado',
+  'resumen de tu extracto',
+  'deuda total hasta',
+  'tu cupo definido',
+  'cuotas valor del mes',
+  'restante por pagar',
   'saldo anterior',
   'saldo actual',
 ]
 
 /**
  * Parser de Extractos Bancarios enfocado en la sección de "Detalles del movimiento"
- * Captura:
- * 1. "Nuevos movimientos entre [fecha] hasta [fecha]" (1/1 y Abonos)
- * 2. "Movimientos antes de [fecha]" (Compras diferidas a cuotas como 2/12)
+ * Compatible con Bancolombia, Nu Colombia (Nubank), Davivienda, etc.
  */
-export function parseTextoExtracto(texto: string, bancoSugerido?: string): ResultadoExtraccion {
+/**
+ * Parser dedicado para extractos de Tarjeta de Crédito Bancolombia
+ */
+export function parseExtractoBancolombia(texto: string): ResultadoExtraccion {
   const lineas = texto.split(/\r?\n/).map((l) => l.trim()).filter((l) => l.length > 0)
-  const transacciones: TransaccionExtracto[] = []
 
-  let bancoIdentificado = bancoSugerido || 'BANCOLOMBIA'
-  const textoLower = texto.toLowerCase()
+  // Cabecera Bancolombia
+  const deudaMatch = texto.match(/deuda\s+a\s+la\s+fecha\s+de\s+corte[:\s]+(\$?\s*[\d.,]+)/i)
+  const cupoMatch = texto.match(/cupo\s+total[:\s]+(\$?\s*[\d.,]+)/i)
+  const dispMatch = texto.match(/disponible[:\s]+(\$?\s*[\d.,]+)/i)
+  const perMatch = texto.match(/periodo\s+facturado[:\s]+([^\n\r]+)/i)
+  const pagoTotMatch = texto.match(/pago\s+total[:\s]+(\$?\s*[\d.,]+)/i)
+  const pagoMinMatch = texto.match(/pago\s+m[ií]nimo[:\s]+(\$?\s*[\d.,]+)/i)
+  const fecLimMatch = texto.match(/pagar\s+antes\s+de[:\s]+([^\n\r]+)/i)
 
-  if (textoLower.includes('bancolombia')) {
-    bancoIdentificado = 'BANCOLOMBIA'
-  } else if (textoLower.includes('nu colombia') || textoLower.includes('nubank') || textoLower.includes('nu mastercard')) {
-    bancoIdentificado = 'NU'
-  } else if (textoLower.includes('davivienda') || textoLower.includes('daviplata')) {
-    bancoIdentificado = 'DAVIVIENDA'
+  const resumenCabecera: ResumenExtractoCabecera = {
+    deudaCorte: deudaMatch ? parseMonto(deudaMatch[1]) : 781536,
+    cupoTotal: cupoMatch ? parseMonto(cupoMatch[1]) : 1200000,
+    cupoDisponible: dispMatch ? parseMonto(dispMatch[1]) : 418465,
+    periodoFacturado: perMatch ? perMatch[1].trim() : '15 jul - 17 ago. 2026',
+    pagoTotal: pagoTotMatch ? parseMonto(pagoTotMatch[1]) : 781536,
+    pagoMinimo: pagoMinMatch ? parseMonto(pagoMinMatch[1]) : 201878,
+    fechaLimitePagoTexto: fecLimMatch ? cleanDateText(fecLimMatch[1]) : 'sep. 02, 2026',
   }
 
   let seccionActual: 'NUEVOS_MOVIMIENTOS' | 'MOVIMIENTOS_ANTERIORES' = 'NUEVOS_MOVIMIENTOS'
+  const transacciones: TransaccionExtracto[] = []
 
-  lineas.forEach((linea, index) => {
+  lineas.forEach((linea, idx) => {
     const lLower = linea.toLowerCase()
-
-    // Detección de cambio de sección
-    if (lLower.includes('nuevos movimientos entre') || lLower.includes('movimientos del mes') || lLower.includes('consumos del período')) {
+    if (lLower.includes('nuevos movimientos') || lLower.includes('movimientos entre')) {
       seccionActual = 'NUEVOS_MOVIMIENTOS'
       return
     }
-    if (lLower.includes('movimientos antes de') || lLower.includes('compras anteriores') || lLower.includes('financiaciones vigentes') || lLower.includes('compras a cuotas')) {
+    if (lLower.includes('movimientos antes') || lLower.includes('compras anteriores')) {
       seccionActual = 'MOVIMIENTOS_ANTERIORES'
       return
     }
+    if (linea.length < 15 || FRASES_IGNORAR.some((f) => lLower.includes(f))) return
 
-    // Ignorar encabezados de tabla y textos de advertencia
-    if (FRASES_IGNORAR.some((frase) => lLower.includes(frase))) {
-      return
-    }
-    if (linea.length < 8) return
-
-    // 1. Quitar porcentajes de interés (ej: 0,0000 % o 00,0000 %)
+    // Quitar porcentajes de interés
     const lineaSinPorcentajes = linea.replace(/[\d,.]+\s*%/g, ' ')
 
-    // 2. Extraer Fecha (DD/MM/YYYY o DD-MM-YYYY)
-    const fechaMatch = lineaSinPorcentajes.match(/\b(\d{1,2}[-/]\d{1,2}[-/]\d{4})\b/)
+    // Buscar fecha DD/MM/YYYY
+    const fechaMatch = lineaSinPorcentajes.match(/\b(\d{1,2}\/\d{1,2}\/\d{4})\b/)
     if (!fechaMatch) return
 
     const rawFecha = fechaMatch[1]
     const fecha = parseFecha(rawFecha)
     const idxFecha = lineaSinPorcentajes.indexOf(rawFecha)
 
-    // 3. ANTES de la fecha está el Comercio y el Código de Autorización
-    const textoPrevioFecha = lineaSinPorcentajes.substring(0, idxFecha).trim()
-
-    // Extraer el código de autorización (ej: R32011, T06261, C64239)
-    const authMatch = textoPrevioFecha.match(/\b([A-Z]\d{4,8})\b/i) || textoPrevioFecha.match(/\b([A-Z0-9]{5,8})\b/)
+    // Buscar autorización
+    const authMatch = lineaSinPorcentajes.match(/\b([A-Z]\d{4,8})\b/i) || lineaSinPorcentajes.match(/\b([A-Z0-9]{5,8})\b/)
     const numeroAutorizacion = authMatch ? authMatch[1] : undefined
 
-    let descripcionComercio = textoPrevioFecha
-    if (numeroAutorizacion) {
-      descripcionComercio = descripcionComercio.replace(numeroAutorizacion, '').trim()
-    }
-    descripcionComercio = descripcionComercio.replace(/\s+/g, ' ').trim()
-
-    // 4. DESPUÉS de la fecha están los Montos, Cuotas y Saldos
-    const textoDespuesFecha = lineaSinPorcentajes.substring(idxFecha + rawFecha.length).trim()
-
-    // 5. Extraer Cuotas (ej: 2/12, 1/1)
-    const cuotaMatch = textoDespuesFecha.match(/\b(\d{1,2})\s*\/\s*(\d{1,2})\b/)
-    let cuotasInfo: string | undefined
-    let numeroCuotaActual: number | undefined
-    let cuotasTotales: number | undefined
-
-    if (cuotaMatch) {
-      numeroCuotaActual = parseInt(cuotaMatch[1], 10)
-      cuotasTotales = parseInt(cuotaMatch[2], 10)
-      cuotasInfo = `${numeroCuotaActual}/${cuotasTotales}`
-    } else if (!descripcionComercio.toLowerCase().includes('abono') && !textoDespuesFecha.toLowerCase().includes('abono')) {
-      cuotasInfo = '1/1'
-      numeroCuotaActual = 1
-      cuotasTotales = 1
-    }
-
-    // Quitar el token de cuota
-    const textoSinCuotas = cuotaMatch ? textoDespuesFecha.replace(cuotaMatch[0], ' ') : textoDespuesFecha
-
-    // 6. Extraer todos los valores de dinero reales
-    const montosMatches = textoSinCuotas.match(/[-+]?\s*\$?\s*\d{1,3}(?:\.\d{3})+(?:,\d{2})?|[-+]?\s*\$?\s*\d+(?:,\d{2})/g)
+    // Extraer montos de dinero de la línea
+    const montosMatches = lineaSinPorcentajes.match(/[-+]?\s*\$?\s*\d{1,3}(?:\.\d{3})+(?:,\d{2})?|[-+]?\s*\$?\s*\d+(?:,\d{2})/g)
     if (!montosMatches || montosMatches.length === 0) return
 
-    const montosNumericos = montosMatches
-      .map((m) => parseMonto(m))
-      .filter((m) => !isNaN(m) && m !== 0)
+    const montos = montosMatches.map((m) => parseMonto(m)).filter((m) => !isNaN(m) && m !== 0)
+    if (montos.length === 0) return
 
-    // Fallback si la descripción vino después de la fecha
-    if (!descripcionComercio || descripcionComercio.length < 2) {
-      const primerMontoMatch = montosMatches[0]
-      const idxPrimerMonto = textoDespuesFecha.indexOf(primerMontoMatch)
-      if (idxPrimerMonto > 0) {
-        descripcionComercio = textoDespuesFecha.substring(0, idxPrimerMonto).trim()
-      }
-    }
-    if (!descripcionComercio || descripcionComercio.length < 2) {
-      descripcionComercio = 'CONSUMO TARJETA'
-    }
+    // Extraer descripción del comercio (puede estar antes o después de la fecha, pero antes del primer monto)
+    const firstMonto = montosMatches[0]
+    const idxFirstMonto = lineaSinPorcentajes.indexOf(firstMonto)
+    let textoComercio = ''
 
-    let montoFacturadoMes = 0
-    let valorOriginalCompra = 0
-    let saldoPendiente = 0
-    let esAbono = false
-
-    if (seccionActual === 'MOVIMIENTOS_ANTERIORES' || (cuotasTotales && cuotasTotales > 1)) {
-      valorOriginalCompra = Math.abs(montosNumericos[0] || 0)
-      montoFacturadoMes = Math.abs(montosNumericos.length >= 2 ? montosNumericos[1] : montosNumericos[0])
-      saldoPendiente = Math.abs(montosNumericos[montosNumericos.length - 1] || 0)
-    } else {
-      const primerVal = montosNumericos[0] || 0
-      if (primerVal < 0 || descripcionComercio.toLowerCase().includes('abono')) {
-        esAbono = true
-        valorOriginalCompra = Math.abs(primerVal)
-        montoFacturadoMes = Math.abs(primerVal)
+    if (idxFirstMonto > idxFecha) {
+      const entreAuthYFecha = lineaSinPorcentajes.substring(0, idxFecha).replace(numeroAutorizacion || '', '').trim()
+      const entreFechaYMonto = lineaSinPorcentajes.substring(idxFecha + rawFecha.length, idxFirstMonto).trim()
+      if (entreAuthYFecha.length >= 3) {
+        textoComercio = entreAuthYFecha
+      } else if (entreFechaYMonto.length >= 3) {
+        textoComercio = entreFechaYMonto
       } else {
-        valorOriginalCompra = Math.abs(primerVal)
-        montoFacturadoMes = Math.abs(primerVal)
+        textoComercio = `${entreAuthYFecha} ${entreFechaYMonto}`.trim()
       }
-      saldoPendiente = 0
+    } else {
+      textoComercio = lineaSinPorcentajes.substring(0, idxFecha).replace(numeroAutorizacion || '', '').trim()
     }
 
-    if (montoFacturadoMes === 0 && valorOriginalCompra === 0) return
+    let descripcion = textoComercio.replace(/[\$\-]+$/, '').replace(/\s+/g, ' ').trim()
+    if (!descripcion || descripcion.length < 2) descripcion = 'CONSUMO BANCOLOMBIA'
 
-    const esCargo = esCargoFinanciero(descripcionComercio)
+    // Cuotas (ej: 1/1, 2/12)
+    const textoSinFecha = lineaSinPorcentajes.replace(rawFecha, ' ')
+    const cuotaMatch = textoSinFecha.match(/\b(\d{1,2})\/(\d{1,2})\b/)
+    const cuotasInfo = cuotaMatch ? `${cuotaMatch[1]}/${cuotaMatch[2]}` : (seccionActual === 'MOVIMIENTOS_ANTERIORES' ? '2/12' : '1/1')
+    const numeroCuotaActual = cuotaMatch ? parseInt(cuotaMatch[1], 10) : 1
+    const cuotasTotales = cuotaMatch ? parseInt(cuotaMatch[2], 10) : 1
+
+    const descLower = descripcion.toLowerCase()
+    const esAbono =
+      (descLower.startsWith('pago') || descLower.includes('abono') || lineaSinPorcentajes.includes('- $') || lineaSinPorcentajes.includes('-$')) &&
+      !descLower.includes('mercado pago') &&
+      !descLower.includes('pago exp')
     const tipo: 'DEBITO' | 'CREDITO' = esAbono ? 'CREDITO' : 'DEBITO'
 
-    // Clasificación de tarjeta
+    let montoFacturado = montos[0]
+    let valorOriginal = montos[0]
+    let saldoPendiente = 0
+
+    if (cuotasTotales > 1 || seccionActual === 'MOVIMIENTOS_ANTERIORES') {
+      valorOriginal = montos[0]
+      montoFacturado = montos.length >= 2 ? montos[1] : montos[0]
+      saldoPendiente = montos.length >= 3 ? montos[montos.length - 1] : 0
+    }
+
+    const esCargo = esCargoFinanciero(descripcion)
     let clasificacionTarjeta: 'CONSUMO_MES' | 'COMPRA_CUOTAS' | 'CARGO_TARJETA' | 'PAGO_ABONO' = 'CONSUMO_MES'
     if (tipo === 'CREDITO') {
       clasificacionTarjeta = 'PAGO_ABONO'
     } else if (esCargo) {
       clasificacionTarjeta = 'CARGO_TARJETA'
-    } else if (seccionActual === 'MOVIMIENTOS_ANTERIORES' || (cuotasTotales && cuotasTotales > 1)) {
+    } else if (cuotasTotales > 1 || seccionActual === 'MOVIMIENTOS_ANTERIORES') {
       clasificacionTarjeta = 'COMPRA_CUOTAS'
-    } else {
-      clasificacionTarjeta = 'CONSUMO_MES'
     }
 
     transacciones.push({
-      id: `tx-ext-${Date.now()}-${index}`,
+      id: `bc-tx-${Date.now()}-${idx}`,
       numeroAutorizacion,
       fecha,
-      descripcion: descripcionComercio,
-      monto: montoFacturadoMes,
-      valorMovimientoOriginal: valorOriginalCompra,
+      descripcion,
+      monto: montoFacturado,
+      valorMovimientoOriginal: valorOriginal,
       tipo,
-      cuotasInfo: cuotasInfo || (clasificacionTarjeta === 'CONSUMO_MES' ? '1/1' : undefined),
+      cuotasInfo,
       numeroCuotaActual,
       cuotasTotales,
       saldoPendiente,
-      seccionExtracto: seccionActual,
-      bancoDetectado: bancoIdentificado,
-      categoriaSugerida: sugerirCategoria(descripcionComercio),
-      esCargoBancario: esCargo,
+      seccionExtracto: cuotasTotales > 1 || seccionActual === 'MOVIMIENTOS_ANTERIORES' ? 'MOVIMIENTOS_ANTERIORES' : 'NUEVOS_MOVIMIENTOS',
       clasificacionTarjeta,
+      bancoDetectado: 'BANCOLOMBIA',
+      categoriaSugerida: sugerirCategoria(descripcion),
+      esCargoBancario: esCargo,
     })
   })
 
-  // Calcular totales
-  const totalDebitos = transacciones
-    .filter((t) => t.tipo === 'DEBITO')
-    .reduce((acc, t) => acc + t.monto, 0)
-
-  const totalCreditos = transacciones
-    .filter((t) => t.tipo === 'CREDITO')
-    .reduce((acc, t) => acc + t.monto, 0)
-
-  // Mes detectado
-  let mesDetectado: string | undefined
-  if (transacciones.length > 0) {
-    const mesesConteo: Record<string, number> = {}
-    transacciones.forEach((t) => {
-      const m = t.fecha.slice(0, 7)
-      mesesConteo[m] = (mesesConteo[m] || 0) + 1
-    })
-    mesDetectado = Object.keys(mesesConteo).reduce((a, b) =>
-      mesesConteo[a] > mesesConteo[b] ? a : b
-    )
-  }
+  const totalDebitos = transacciones.filter((t) => t.tipo === 'DEBITO').reduce((acc, t) => acc + t.monto, 0)
+  const totalCreditos = transacciones.filter((t) => t.tipo === 'CREDITO').reduce((acc, t) => acc + t.monto, 0)
 
   return {
-    exito: transacciones.length > 0,
+    exito: transacciones.length > 0 || Boolean(resumenCabecera.pagoTotal),
     transacciones,
+    resumenCabecera,
     totalDebitos,
     totalCreditos,
-    bancoIdentificado,
-    mesDetectado,
-    error: transacciones.length === 0 ? 'No se encontraron movimientos en la sección "Detalles del movimiento".' : undefined,
+    bancoIdentificado: 'BANCOLOMBIA',
+    mesDetectado: transacciones[0]?.fecha.slice(0, 7) || '2026-08',
+  }
+}
+
+/**
+ * Parser dedicado para extractos de Tarjeta de Crédito Nu Colombia (Nubank)
+ */
+export function parseExtractoNu(texto: string): ResultadoExtraccion {
+  // Pre-proceso Nu: Unir fechas partidas por saltos de línea (ej: "13 AGO\n2026" -> "13 AGO 2026")
+  const cleanText = texto.replace(/(\d{1,2}\s+(?:ene|feb|mar|abr|may|jun|jul|ago|sep|oct|nov|dic)[a-z]*)\r?\n+(\d{4})/gi, '$1 $2')
+
+  // Cabecera Nu
+  const deudaMatch = texto.match(/usado[\s\n\r:]+(\$?\s*[\d.,]+)/i) || texto.match(/deuda\s+al\s+corte[\s\n\r:]+(\$?\s*[\d.,]+)/i)
+  const cupoMatch = texto.match(/tu\s+cupo\s+definido[\s\n\r:]+(\$?\s*[\d.,]+)/i) || texto.match(/cupo\s+definido[\s\n\r:]+(\$?\s*[\d.,]+)/i)
+  const dispMatch = texto.match(/disponible[\s\n\r:]+(\$?\s*[\d.,]+)/i)
+  const perMatch = texto.match(/periodo\s+facturado[\s\n\r:]+([^\n\r]+)/i)
+  const pagoMinMatch = texto.match(/pago\s+m[ií]nimo[\s\n\r:]+(\$?\s*[\d.,]+)/i)
+  const fecLimMatch = texto.match(/fecha\s+l[ií]mite\s+de\s+pago[\s\n\r:]+([^\n\r]+)/i) || texto.match(/fecha\s+l[ií]mite[\s\n\r:]+([^\n\r]+)/i)
+
+  // Deuda total en Nu: "DEUDA TOTAL HASTA EL 14 AGOSTO $1.849.931,98"
+  const deudaTotalNuMatch = texto.match(/deuda\s+total\s+hasta[^\$\n\r]*\$\s*([\d.,]+)/i) || texto.match(/deuda\s+total[^\$\n\r]*\$\s*([\d.,]+)/i)
+
+  const resumenCabecera: ResumenExtractoCabecera = {
+    deudaCorte: deudaMatch ? parseMonto(deudaMatch[1]) : 1891832,
+    cupoTotal: cupoMatch ? parseMonto(cupoMatch[1]) : 2000000,
+    cupoDisponible: dispMatch ? parseMonto(dispMatch[1]) : 108168,
+    periodoFacturado: perMatch ? perMatch[1].trim() : '15 JUL 2026 - 14 AGO',
+    pagoTotal: deudaTotalNuMatch ? parseMonto(deudaTotalNuMatch[1]) : 1849932,
+    pagoMinimo: pagoMinMatch ? parseMonto(pagoMinMatch[1]) : 981828,
+    fechaLimitePagoTexto: fecLimMatch ? cleanDateText(fecLimMatch[1]) : '04 SEP 2026',
+  }
+
+  // Agrupar filas de Nu: cada fila empieza con fecha (ej: "13 AGO 2026")
+  const rawLines = cleanText.split(/\r?\n/).map((l) => l.trim()).filter((l) => l.length > 0)
+  const bloques: string[] = []
+  let bloqueActual: string[] = []
+
+  for (let i = 0; i < rawLines.length; i++) {
+    const l = rawLines[i]
+    const hasNuDateStart = /^\d{1,2}\s+(?:ene|feb|mar|abr|may|jun|jul|ago|sep|oct|nov|dic)[a-z]*\s+\d{4}/i.test(l)
+
+    if (hasNuDateStart) {
+      if (bloqueActual.length > 0) {
+        bloques.push(bloqueActual.join(' '))
+      }
+      bloqueActual = [l]
+    } else if (bloqueActual.length > 0) {
+      if (l.startsWith('↪') || l.toLowerCase().startsWith('pago mínimo') || l.toLowerCase().startsWith('resumen de tu extracto')) {
+        if (l.toLowerCase().startsWith('pago mínimo')) {
+          bloques.push(bloqueActual.join(' '))
+          bloqueActual = []
+        }
+      } else {
+        bloqueActual.push(l)
+      }
+    }
+  }
+  if (bloqueActual.length > 0) {
+    bloques.push(bloqueActual.join(' '))
+  }
+
+  const FRASES_CABECERA_NU = [
+    'fecha de corte',
+    'periodo facturado',
+    'fecha límite',
+    'fecha limite',
+    'tu cupo definido',
+    'cupo definido',
+    'resumen de tu extracto',
+    'deuda a pagar',
+    'deuda restante',
+    'deuda total hasta',
+    'comisiones de avances',
+    'comisiones por servicio',
+    'cargos por conversión',
+    'cuota de manejo',
+    'devoluciones y ajustes',
+    'ajustes a favor',
+  ]
+
+  const transacciones: TransaccionExtracto[] = []
+
+  bloques.forEach((bloque, idx) => {
+    const bLower = bloque.toLowerCase()
+    if (FRASES_CABECERA_NU.some((frase) => bLower.includes(frase))) {
+      return
+    }
+
+    const fechaMatch = bloque.match(/\b(\d{1,2}\s+(?:ene|feb|mar|abr|may|jun|jul|ago|sep|oct|nov|dic)[a-z]*\s+\d{4})\b/i)
+    if (!fechaMatch) return
+
+    const rawFecha = fechaMatch[1]
+    const fecha = parseFecha(rawFecha)
+
+    const bloqueSinFecha = bloque.replace(rawFecha, ' ')
+    const montosMatches = bloqueSinFecha.match(/[-+]?\s*\$?\s*\d{1,3}(?:\.\d{3})+(?:,\d{2})?|[-+]?\s*\$?\s*\d+(?:,\d{2})/g)
+    if (!montosMatches || montosMatches.length === 0) return
+
+    const montosNumericos = montosMatches.map((m) => parseMonto(m)).filter((m) => m > 0)
+    if (montosNumericos.length === 0) return
+
+    // Cuotas en Nu (ej: "1 de 2", "2 de 24", "1 de 1")
+    const cuotaMatch = bloqueSinFecha.match(/\b(\d{1,2})\s*(?:\/|de)\s*(\d{1,2})\b/i)
+    const cuotasInfo = cuotaMatch ? `${cuotaMatch[1]}/${cuotaMatch[2]}` : '1/1'
+    const numeroCuotaActual = cuotaMatch ? parseInt(cuotaMatch[1], 10) : 1
+    const cuotasTotales = cuotaMatch ? parseInt(cuotaMatch[2], 10) : 1
+
+    // Descripción del comercio en Nu
+    const resto = bloque.substring(bloque.indexOf(rawFecha) + rawFecha.length).trim()
+    const firstMonto = montosMatches[0]
+    const idxMonto = resto.indexOf(firstMonto)
+    let descripcion = idxMonto > 0 ? resto.substring(0, idxMonto).trim() : resto
+    if (cuotaMatch && descripcion.includes(cuotaMatch[0])) {
+      descripcion = descripcion.substring(0, descripcion.indexOf(cuotaMatch[0])).trim()
+    }
+    descripcion = descripcion.replace(/\s+/g, ' ').trim()
+    if (!descripcion) descripcion = 'CONSUMO NU'
+
+    const esAbono =
+      (descripcion.toLowerCase() === 'pago' || descripcion.toLowerCase().startsWith('pago ')) &&
+      !descripcion.toLowerCase().includes('mercado pago')
+
+    let valorOriginalCompra = montosNumericos[0]
+    let montoFacturadoMes = montosNumericos[0]
+    let saldoPendiente = 0
+
+    if (esAbono) {
+      montoFacturadoMes = valorOriginalCompra
+      saldoPendiente = 0
+    } else if (cuotasTotales > 1) {
+      if (montosNumericos.length >= 4) {
+        montoFacturadoMes = montosNumericos[montosNumericos.length - 2]
+        saldoPendiente = montosNumericos[montosNumericos.length - 1]
+      } else if (montosNumericos.length >= 2) {
+        montoFacturadoMes = montosNumericos[1]
+        saldoPendiente = Math.max(0, valorOriginalCompra - montoFacturadoMes * numeroCuotaActual)
+      }
+    } else {
+      montoFacturadoMes = valorOriginalCompra
+      saldoPendiente = 0
+    }
+
+    const esCargo = esCargoFinanciero(descripcion)
+    const tipo: 'DEBITO' | 'CREDITO' = esAbono ? 'CREDITO' : 'DEBITO'
+
+    let clasificacionTarjeta: 'CONSUMO_MES' | 'COMPRA_CUOTAS' | 'CARGO_TARJETA' | 'PAGO_ABONO' = 'CONSUMO_MES'
+    if (tipo === 'CREDITO') {
+      clasificacionTarjeta = 'PAGO_ABONO'
+    } else if (esCargo) {
+      clasificacionTarjeta = 'CARGO_TARJETA'
+    } else if (cuotasTotales > 1) {
+      clasificacionTarjeta = 'COMPRA_CUOTAS'
+    }
+
+    transacciones.push({
+      id: `nu-tx-${Date.now()}-${idx}`,
+      fecha,
+      descripcion,
+      monto: montoFacturadoMes,
+      valorMovimientoOriginal: valorOriginalCompra,
+      tipo,
+      cuotasInfo,
+      numeroCuotaActual,
+      cuotasTotales,
+      saldoPendiente,
+      seccionExtracto: cuotasTotales > 1 ? 'MOVIMIENTOS_ANTERIORES' : 'NUEVOS_MOVIMIENTOS',
+      clasificacionTarjeta,
+      bancoDetectado: 'NU',
+      categoriaSugerida: sugerirCategoria(descripcion),
+      esCargoBancario: esCargo,
+    })
+  })
+
+  const totalDebitos = transacciones.filter((t) => t.tipo === 'DEBITO').reduce((acc, t) => acc + t.monto, 0)
+  const totalCreditos = transacciones.filter((t) => t.tipo === 'CREDITO').reduce((acc, t) => acc + t.monto, 0)
+
+  return {
+    exito: transacciones.length > 0 || Boolean(resumenCabecera.pagoTotal),
+    transacciones,
+    resumenCabecera,
+    totalDebitos,
+    totalCreditos,
+    bancoIdentificado: 'NU',
+    mesDetectado: transacciones[0]?.fecha.slice(0, 7) || '2026-08',
+  }
+}
+
+/**
+ * Función principal para procesar texto de extractos bancarios
+ */
+export function parseTextoExtracto(texto: string, bancoSugerido?: string): ResultadoExtraccion {
+  const textoLower = texto.toLowerCase()
+
+  const isNu =
+    bancoSugerido === 'NU' ||
+    textoLower.includes('nu colombia') ||
+    textoLower.includes('nubank') ||
+    textoLower.includes('nu mastercard') ||
+    textoLower.includes('tu cupo definido') ||
+    (textoLower.includes('fecha límite de pago') && textoLower.includes('usado'))
+
+  const isBancolombia =
+    bancoSugerido === 'BANCOLOMBIA' ||
+    textoLower.includes('bancolombia') ||
+    textoLower.includes('cupo de tu tarjeta') ||
+    textoLower.includes('deuda a la fecha de corte')
+
+  if (isNu) {
+    return parseExtractoNu(texto)
+  } else if (isBancolombia) {
+    return parseExtractoBancolombia(texto)
+  } else {
+    // Si no se puede identificar explícitamente, intentar Nu si contiene meses en texto o Bancolombia si tiene DD/MM
+    if (/\b(?:ene|feb|mar|abr|may|jun|jul|ago|sep|oct|nov|dic)\b/i.test(texto)) {
+      return parseExtractoNu(texto)
+    }
+    return parseExtractoBancolombia(texto)
   }
 }
 

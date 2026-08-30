@@ -83,18 +83,22 @@ export function AlimentacionPage() {
       .reduce((acc, a) => acc + a.monto, 0)
   }, [alimentacionMes])
 
-  // Desglose Comprado Afuera vs Cocinado en Casa
-  const totalCompradoAfuera = useMemo(() => {
-    return alimentacionMes
-      .filter((a) => a.origenComida === 'RESTAURANTE_AFUERA' || (!a.origenComida && a.tipoComida !== 'MERCADO_GENERAL'))
-      .reduce((acc, a) => acc + a.monto, 0)
-  }, [alimentacionMes])
+  // Aportes de Mamá específicos para comida / mercado recibidos en el mes
+  const totalAportesMamaComida = useMemo(() => {
+    return (state.ingresos || [])
+      .filter(
+        (ing) =>
+          ing.fecha.startsWith(selectedMonth) &&
+          (ing.tipo === 'APORTE_MAMA' ||
+            ing.descripcion.toLowerCase().includes('mamá') ||
+            ing.descripcion.toLowerCase().includes('mama') ||
+            ing.descripcion.toLowerCase().includes('comida') ||
+            ing.descripcion.toLowerCase().includes('mercado'))
+      )
+      .reduce((acc, ing) => acc + ing.monto, 0)
+  }, [state.ingresos, selectedMonth])
 
-  const totalCocinadoCasa = useMemo(() => {
-    return alimentacionMes
-      .filter((a) => a.origenComida === 'COCINADO_EN_CASA' || a.tipoComida === 'MERCADO_GENERAL')
-      .reduce((acc, a) => acc + a.monto, 0)
-  }, [alimentacionMes])
+  const saldoAporteComida = totalAportesMamaComida - totalAlimentacionMes
 
   // Donut chart
   const chartData = useMemo(() => {
@@ -278,6 +282,20 @@ export function AlimentacionPage() {
 
       {/* Tarjetas de Desglose Especializado */}
       <div className="stat-grid">
+        {/* Aporte de Mamá para Alimentación */}
+        <article className="stat-card" style={{ borderLeft: '4px solid #db2777' }}>
+          <div className="stat-card-top">
+            <span className="stat-card-title">👩‍👧 Aporte de Mamá para Comida</span>
+            <span className="badge" style={{ backgroundColor: 'rgba(219, 39, 119, 0.12)', color: '#db2777' }}>Apoyo Familiar</span>
+          </div>
+          <div className="stat-value" style={{ color: '#db2777' }}>{formatMoney(totalAportesMamaComida)}</div>
+          <span className="stat-subtext">
+            {saldoAporteComida >= 0
+              ? `✓ Quedan +${formatMoney(saldoAporteComida)} del aporte`
+              : `Aporte tuyo adicional: ${formatMoney(Math.abs(saldoAporteComida))}`}
+          </span>
+        </article>
+
         {/* Almuerzos */}
         <article className="stat-card" style={{ borderLeft: '4px solid #10b981' }}>
           <div className="stat-card-top">
@@ -297,18 +315,6 @@ export function AlimentacionPage() {
           <div className="stat-value">{formatMoney(totalAmbosCompartido)}</div>
           <span className="stat-subtext">
             Solo Yo: <strong>{formatMoney(totalSoloYo)}</strong> | Hermano: <strong>{formatMoney(totalSoloHermano)}</strong>
-          </span>
-        </article>
-
-        {/* Comprado afuera vs Cocinado en casa */}
-        <article className="stat-card" style={{ borderLeft: '4px solid #f59e0b' }}>
-          <div className="stat-card-top">
-            <span className="stat-card-title">🍽️ Comprado Afuera</span>
-            <span className="badge warning">Restaurantes / Menús</span>
-          </div>
-          <div className="stat-value">{formatMoney(totalCompradoAfuera)}</div>
-          <span className="stat-subtext">
-            Cocinado en casa / Mercado: <strong>{formatMoney(totalCocinadoCasa)}</strong>
           </span>
         </article>
 

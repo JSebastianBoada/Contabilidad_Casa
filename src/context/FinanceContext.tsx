@@ -26,18 +26,21 @@ import { firebaseFinanceService } from '../firebase/financeFirebase'
 import { isFirebaseConfigured } from '../firebase/config'
 import { useAuth } from '../auth/AuthContext'
 import {
+  initialTarjetas,
+} from '../services/initialData'
+import {
   calcularCuotaMensual,
   calcularCuotasMes,
 } from '../utils/financialCalculations'
 
-interface ToastInfo {
+export interface ToastInfo {
   id: string
   title: string
   message?: string
   type: 'success' | 'info' | 'warning' | 'error'
 }
 
-interface FinanceContextType {
+export interface FinanceContextType {
   state: FullFinanceState
   selectedMonth: string
   setSelectedMonth: (month: string) => void
@@ -46,7 +49,7 @@ interface FinanceContextType {
   showToast: (title: string, message?: string, type?: 'success' | 'info' | 'warning' | 'error') => void
   removeToast: (id: string) => void
 
-  // Computed metrics
+  // Métricas calculadas
   totalIngresosMes: number
   totalGastosHogarMes: number
   totalAlimentacionMes: number
@@ -61,20 +64,20 @@ interface FinanceContextType {
   cupoTotalTarjetas: number
   cupoDisponibleTarjetas: number
 
-  // Actions
+  // Operaciones
   addCuenta: (cuenta: Omit<CuentaFinanciera, 'id'>) => void
-  updateCuenta: (id: string, cuenta: Partial<CuentaFinanciera>) => void
+  updateCuenta: (id: string, updates: Partial<CuentaFinanciera>) => void
   deleteCuenta: (id: string) => void
   transferirEntreCuentas: (transferencia: Omit<TransferenciaCuenta, 'id'>) => void
 
   addArriendo: (arriendo: Omit<ArriendoVivienda, 'id'>) => void
-  updateArriendo: (id: string, data: Partial<ArriendoVivienda>) => void
-  togglePagoArriendo: (id: string, cuentaId?: string) => void
+  updateArriendo: (id: string, updates: Partial<ArriendoVivienda>) => void
+  togglePagoArriendo: (id: string) => void
   deleteArriendo: (id: string) => void
 
   addServicio: (servicio: Omit<ServicioPublico, 'id'>) => void
-  updateServicio: (id: string, data: Partial<ServicioPublico>) => void
-  togglePagoServicio: (id: string, cuentaId?: string) => void
+  updateServicio: (id: string, updates: Partial<ServicioPublico>) => void
+  togglePagoServicio: (id: string) => void
   deleteServicio: (id: string) => void
 
   addCompraHogar: (compra: Omit<CompraHogar, 'id'>) => void
@@ -89,16 +92,15 @@ interface FinanceContextType {
   addGastoPersonal: (gasto: Omit<GastoPersonal, 'id'>) => void
   deleteGastoPersonal: (id: string) => void
 
-  // Gastos Fijos & Recurrentes
   addGastoRecurrente: (gasto: Omit<GastoRecurrenteFijo, 'id'>) => void
-  updateGastoRecurrente: (id: string, data: Partial<GastoRecurrenteFijo>) => void
+  updateGastoRecurrente: (id: string, updates: Partial<GastoRecurrenteFijo>) => void
   deleteGastoRecurrente: (id: string) => void
   toggleActivoGastoRecurrente: (id: string) => void
-  aplicarGastoRecurrenteAlMes: (recurrenteId: string, mes?: string) => void
+  aplicarGastoRecurrenteAlMes: (gastoId: string, mes?: string) => void
   aplicarTodosRecurrentesPendientes: (mes?: string) => void
 
   addTarjeta: (tarjeta: Omit<TarjetaCredito, 'id'>) => void
-  updateTarjeta: (id: string, data: Partial<TarjetaCredito>) => void
+  updateTarjeta: (id: string, updates: Partial<TarjetaCredito>) => void
   deleteTarjeta: (id: string) => void
 
   addCompraCuota: (compra: {
@@ -108,11 +110,15 @@ interface FinanceContextType {
     fechaCompra: string
     montoTotal: number
     cuotasTotales: number
+    cuotasPagadas?: number
+    valorCuota?: number
+    saldoRestante?: number
     tasaInteresMensual: number
     fechaInicioCobro?: string
+    estado?: 'ACTIVA' | 'PAGADA' | 'PREPAGADA'
     notas?: string
   }) => void
-  updateCompraCuota: (id: string, data: Partial<CompraCuota>) => void
+  updateCompraCuota: (id: string, updates: Partial<CompraCuota>) => void
   pagarCuotaCompra: (compraId: string, cuentaId?: string) => void
   prepagarCompra: (compraId: string, cuentaId?: string) => void
   deleteCompraCuota: (id: string) => void
@@ -121,8 +127,9 @@ interface FinanceContextType {
   deletePresupuesto: (id: string) => void
 
   resetData: () => void
-  loadSampleData: () => void
   clearAllData: () => void
+  limpiarDatosTarjetas: () => void
+  loadSampleData: () => void
   exportBackup: () => void
   importBackup: (jsonStr: string) => void
   syncFirebase: () => Promise<void>
@@ -130,16 +137,75 @@ interface FinanceContextType {
 
 const FinanceContext = createContext<FinanceContextType | undefined>(undefined)
 
+function generateUniqueId(prefix: string): string {
+  return `${prefix}-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`
+}
+
+function sanitizeAndDeduplicateState(stateObj: FullFinanceState): FullFinanceState {
+  const fixUniqueIds = <T extends { id: string }>(items: T[] | undefined, prefix: string): T[] => {
+    if (!items || !Array.isArray(items)) return []
+    const seen = new Set<string>()
+    return items.map((item, idx) => {
+      if (!item.id || seen.has(item.id)) {
+        const newId = `${prefix}-${Date.now()}-${idx}-${Math.random().toString(36).substring(2, 7)}`
+        seen.add(newId)
+        return { ...item, id: newId }
+      }
+      seen.add(item.id)
+      return item
+    })
+  }
+
+  const ensureDefaultCuentas = (cuentas: CuentaFinanciera[] | undefined): CuentaFinanciera[] => {
+    const list = cuentas && Array.isArray(cuentas) ? [...cuentas] : []
+    const hasHermano = list.some(
+      (c) => c.id === 'cuenta-hermano' || c.nombre.toLowerCase().includes('hermano')
+    )
+    if (!hasHermano) {
+      list.push({
+        id: 'cuenta-hermano',
+        nombre: 'Fondo Hermano (Almuerzos & Aportes)',
+        tipo: 'BILLETERA_DIGITAL',
+        saldo: 0,
+        numero: 'Bolsillo / Hermano',
+        color: '#06b6d4',
+        icono: 'wallet',
+      })
+    }
+    return list
+  }
+
+  return {
+    ...stateObj,
+    cuentas: fixUniqueIds(ensureDefaultCuentas(stateObj.cuentas), 'cuenta'),
+    tarjetas: fixUniqueIds(stateObj.tarjetas, 'tc'),
+    comprasCuotas: fixUniqueIds(stateObj.comprasCuotas, 'cc'),
+    gastosPersonales: fixUniqueIds(stateObj.gastosPersonales, 'gp'),
+    alimentacion: fixUniqueIds(stateObj.alimentacion, 'alim'),
+    comprasHogar: fixUniqueIds(stateObj.comprasHogar, 'comp-hogar'),
+    ingresos: fixUniqueIds(stateObj.ingresos, 'ing'),
+    servicios: fixUniqueIds(stateObj.servicios, 'serv'),
+    arriendos: fixUniqueIds(stateObj.arriendos, 'arr'),
+    gastosRecurrentes: fixUniqueIds(stateObj.gastosRecurrentes, 'rec'),
+    transferencias: fixUniqueIds(stateObj.transferencias, 'transf'),
+  }
+}
+
 export function FinanceProvider({ children }: { children: ReactNode }) {
   const { user } = useAuth()
   const userId = user?.uid
 
   const [state, setState] = useState<FullFinanceState>(() => {
     const local = storageService.loadLocalState(userId)
-    if (local && Array.isArray(local.cuentas)) {
-      return local
+    if (local && Array.isArray(local.cuentas) && local.cuentas.length > 0) {
+      const sanitized = sanitizeAndDeduplicateState({
+        ...storageService.createEmptyState(),
+        ...local,
+      })
+      storageService.saveLocalState(sanitized, userId)
+      return sanitized
     }
-    return storageService.createEmptyState()
+    return storageService.createSampleState()
   })
   const today = new Date()
   const defaultMonth = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}`
@@ -152,14 +218,19 @@ export function FinanceProvider({ children }: { children: ReactNode }) {
     if (userId) {
       const local = storageService.loadLocalState(userId)
       if (local && Array.isArray(local.cuentas) && local.cuentas.length > 0) {
-        setState(local)
+        const sanitized = sanitizeAndDeduplicateState({
+          ...storageService.createEmptyState(),
+          ...local,
+        })
+        setState(sanitized)
+        storageService.saveLocalState(sanitized, userId)
       }
     }
   }, [userId])
 
   const showToast = useCallback(
     (title: string, message?: string, type: 'success' | 'info' | 'warning' | 'error' = 'success') => {
-      const id = `${Date.now()}-${Math.random()}`
+      const id = generateUniqueId('toast')
       setToasts((prev) => [...prev, { id, title, message, type }])
       setTimeout(() => {
         setToasts((prev) => prev.filter((t) => t.id !== id))
@@ -176,7 +247,8 @@ export function FinanceProvider({ children }: { children: ReactNode }) {
   const updateAndSaveState = useCallback(
     (updater: (prevState: FullFinanceState) => FullFinanceState) => {
       setState((prev) => {
-        const next = updater(prev)
+        const rawNext = updater(prev)
+        const next = sanitizeAndDeduplicateState(rawNext)
         
         // 1. Guardar de forma síncrona e inmediata en LocalStorage
         storageService.saveLocalState(next, userId)
@@ -358,7 +430,7 @@ export function FinanceProvider({ children }: { children: ReactNode }) {
 
   const addCuenta = useCallback(
     (cuenta: Omit<CuentaFinanciera, 'id'>) => {
-      const id = `cuenta-${Date.now()}`
+      const id = generateUniqueId('cuenta')
       updateAndSaveState((prev) => ({
         ...prev,
         cuentas: [...(prev.cuentas || []), { ...cuenta, id }],
@@ -392,7 +464,7 @@ export function FinanceProvider({ children }: { children: ReactNode }) {
 
   const transferirEntreCuentas = useCallback(
     (transferencia: Omit<TransferenciaCuenta, 'id'>) => {
-      const id = `transf-${Date.now()}`
+      const id = generateUniqueId('transf')
       updateAndSaveState((prev) => {
         const cuentasActualizadas = (prev.cuentas || []).map((c) => {
           if (c.id === transferencia.cuentaOrigenId) {
@@ -417,7 +489,7 @@ export function FinanceProvider({ children }: { children: ReactNode }) {
   // Arriendos
   const addArriendo = useCallback(
     (arriendo: Omit<ArriendoVivienda, 'id'>) => {
-      const id = `arr-${Date.now()}`
+      const id = generateUniqueId('arr')
       updateAndSaveState((prev) => {
         let nextCuentas = prev.cuentas || []
         if (arriendo.pagado && arriendo.cuentaId) {
@@ -501,10 +573,13 @@ export function FinanceProvider({ children }: { children: ReactNode }) {
   // Servicios Públicos
   const addServicio = useCallback(
     (servicio: Omit<ServicioPublico, 'id'>) => {
-      const id = `serv-${Date.now()}`
+      const id = generateUniqueId('serv')
+      const esPagadoPorMama = (servicio.responsablePago || 'MAMA') === 'MAMA'
+
       updateAndSaveState((prev) => {
         let nextCuentas = prev.cuentas || []
-        if (servicio.pagado && servicio.cuentaId && !servicio.tarjetaId) {
+        // Solo descontar de cuentas del usuario si NO lo paga mamá
+        if (servicio.pagado && servicio.cuentaId && !servicio.tarjetaId && !esPagadoPorMama) {
           nextCuentas = nextCuentas.map((c) =>
             c.id === servicio.cuentaId ? { ...c, saldo: c.saldo - servicio.monto } : c
           )
@@ -540,9 +615,11 @@ export function FinanceProvider({ children }: { children: ReactNode }) {
         const nuevoPagado = !item.pagado
         const targetCuentaId = cuentaId || item.cuentaId || prev.cuentas[0]?.id
         const fechaPago = nuevoPagado ? new Date().toISOString().slice(0, 10) : undefined
+        const esPagadoPorMama = (item.responsablePago || 'MAMA') === 'MAMA'
 
         let nextCuentas = prev.cuentas || []
-        if (!item.tarjetaId) {
+        // Si lo paga mamá, no altera el saldo bancario del usuario
+        if (!item.tarjetaId && !esPagadoPorMama) {
           nextCuentas = nextCuentas.map((c) => {
             if (c.id === targetCuentaId) {
               return {
@@ -563,13 +640,13 @@ export function FinanceProvider({ children }: { children: ReactNode }) {
                   ...s,
                   pagado: nuevoPagado,
                   fechaPago,
-                  cuentaId: nuevoPagado ? targetCuentaId : undefined,
+                  cuentaId: nuevoPagado && !esPagadoPorMama ? targetCuentaId : undefined,
                 }
               : s
           ),
         }
       })
-      showToast('Servicio actualizado', 'Se recalculó el saldo de la cuenta')
+      showToast('Servicio actualizado', 'Se actualizó el estado de pago del servicio')
     },
     [updateAndSaveState, showToast]
   )
@@ -588,7 +665,7 @@ export function FinanceProvider({ children }: { children: ReactNode }) {
   // Compras de Hogar
   const addCompraHogar = useCallback(
     (compra: Omit<CompraHogar, 'id'>) => {
-      const id = `comp-hogar-${Date.now()}`
+      const id = generateUniqueId('comp-hogar')
       updateAndSaveState((prev) => {
         let nextCuentas = prev.cuentas || []
         if (compra.cuentaId && !compra.tarjetaId) {
@@ -621,7 +698,7 @@ export function FinanceProvider({ children }: { children: ReactNode }) {
   // Alimentación
   const addAlimentacion = useCallback(
     (gasto: Omit<GastoAlimentacion, 'id'>) => {
-      const id = `alim-${Date.now()}`
+      const id = generateUniqueId('alim')
       updateAndSaveState((prev) => {
         let nextCuentas = prev.cuentas || []
         if (gasto.cuentaId && !gasto.tarjetaId) {
@@ -654,7 +731,7 @@ export function FinanceProvider({ children }: { children: ReactNode }) {
   // Ingresos Personales
   const addIngreso = useCallback(
     (ingreso: Omit<IngresoPersonal, 'id'>) => {
-      const id = `ing-${Date.now()}`
+      const id = generateUniqueId('ing')
       updateAndSaveState((prev) => {
         const nextCuentas = (prev.cuentas || []).map((c) =>
           c.id === ingreso.cuentaId ? { ...c, saldo: c.saldo + ingreso.monto } : c
@@ -684,7 +761,7 @@ export function FinanceProvider({ children }: { children: ReactNode }) {
   // Gastos Personales
   const addGastoPersonal = useCallback(
     (gasto: Omit<GastoPersonal, 'id'>) => {
-      const id = `gp-${Date.now()}`
+      const id = generateUniqueId('gp')
       updateAndSaveState((prev) => {
         let nextCuentas = prev.cuentas || []
         if (gasto.cuentaId && !gasto.tarjetaId) {
@@ -719,7 +796,7 @@ export function FinanceProvider({ children }: { children: ReactNode }) {
   // ==========================================
   const addGastoRecurrente = useCallback(
     (gasto: Omit<GastoRecurrenteFijo, 'id'>) => {
-      const id = `rec-${Date.now()}`
+      const id = generateUniqueId('rec')
       updateAndSaveState((prev) => ({
         ...prev,
         gastosRecurrentes: [...(prev.gastosRecurrentes || []), { ...gasto, id }],
@@ -784,7 +861,7 @@ export function FinanceProvider({ children }: { children: ReactNode }) {
         const dia = String(Math.min(28, Math.max(1, item.diaCobro))).padStart(2, '0')
         const fecha = `${targetMonth}-${dia}`
         const isTarjeta = item.metodoPago === 'TARJETA_CREDITO'
-        const id = `gp-rec-${Date.now()}`
+        const id = generateUniqueId('gp-rec')
 
         let nextCuentas = prev.cuentas || []
         if (!isTarjeta && item.cuentaId) {
@@ -843,11 +920,11 @@ export function FinanceProvider({ children }: { children: ReactNode }) {
         let nextCuentas = [...(prev.cuentas || [])]
         const nuevosGastos: GastoPersonal[] = []
 
-        pendientes.forEach((item, index) => {
+        pendientes.forEach((item) => {
           const dia = String(Math.min(28, Math.max(1, item.diaCobro))).padStart(2, '0')
           const fecha = `${targetMonth}-${dia}`
           const isTarjeta = item.metodoPago === 'TARJETA_CREDITO'
-          const id = `gp-rec-${Date.now()}-${index}`
+          const id = generateUniqueId('gp-rec')
 
           if (!isTarjeta && item.cuentaId) {
             nextCuentas = nextCuentas.map((c) =>
@@ -888,7 +965,7 @@ export function FinanceProvider({ children }: { children: ReactNode }) {
   // Tarjetas de Crédito
   const addTarjeta = useCallback(
     (tarjeta: Omit<TarjetaCredito, 'id'>) => {
-      const id = `tc-${Date.now()}`
+      const id = generateUniqueId('tc')
       updateAndSaveState((prev) => ({
         ...prev,
         tarjetas: [...(prev.tarjetas || []), { ...tarjeta, id }],
@@ -930,16 +1007,43 @@ export function FinanceProvider({ children }: { children: ReactNode }) {
       fechaCompra: string
       montoTotal: number
       cuotasTotales: number
+      cuotasPagadas?: number
+      valorCuota?: number
+      saldoRestante?: number
       tasaInteresMensual: number
       fechaInicioCobro?: string
+      estado?: 'ACTIVA' | 'PAGADA' | 'PREPAGADA'
       notas?: string
     }) => {
-      const id = `cc-${Date.now()}`
-      const valorCuota = calcularCuotaMensual(
-        compraInput.montoTotal,
-        compraInput.cuotasTotales,
-        compraInput.tasaInteresMensual
+      const id = generateUniqueId('cc')
+      const cuotasTotales = Math.max(1, compraInput.cuotasTotales)
+      const cuotasPagadas = Math.min(
+        cuotasTotales,
+        Math.max(0, compraInput.cuotasPagadas ?? 0)
       )
+
+      const valorCuota =
+        compraInput.valorCuota !== undefined && compraInput.valorCuota > 0
+          ? compraInput.valorCuota
+          : calcularCuotaMensual(
+              compraInput.montoTotal,
+              cuotasTotales,
+              compraInput.tasaInteresMensual
+            )
+
+      const saldoRestante =
+        compraInput.saldoRestante !== undefined
+          ? Math.max(0, compraInput.saldoRestante)
+          : Math.max(
+              0,
+              Math.round(compraInput.montoTotal - valorCuota * cuotasPagadas)
+            )
+
+      const estado =
+        compraInput.estado ||
+        (cuotasPagadas >= cuotasTotales || (saldoRestante === 0 && cuotasPagadas > 0)
+          ? 'PAGADA'
+          : 'ACTIVA')
 
       const nuevaCompra: CompraCuota = {
         id,
@@ -948,14 +1052,14 @@ export function FinanceProvider({ children }: { children: ReactNode }) {
         comercio: compraInput.comercio,
         fechaCompra: compraInput.fechaCompra,
         montoTotal: compraInput.montoTotal,
-        cuotasTotales: Math.max(1, compraInput.cuotasTotales),
-        cuotasPagadas: 0,
+        cuotasTotales,
+        cuotasPagadas,
         tasaInteresMensual: compraInput.tasaInteresMensual,
         valorCuota,
-        saldoRestante: compraInput.montoTotal,
+        saldoRestante,
         fechaInicioCobro:
           compraInput.fechaInicioCobro || compraInput.fechaCompra.slice(0, 7),
-        estado: 'ACTIVA',
+        estado,
         historialPagos: [],
         notas: compraInput.notas,
       }
@@ -1142,6 +1246,28 @@ export function FinanceProvider({ children }: { children: ReactNode }) {
     showToast('Datos de prueba cargados', 'Se cargaron los ejemplos de finanzas', 'info')
   }, [userId, showToast])
 
+  // Limpiar y resetear exclusivamente las tarjetas y compras a cuotas para pruebas de extractos
+  const limpiarDatosTarjetas = useCallback(() => {
+    updateAndSaveState((prev) => {
+      const tarjetasLimpias = (prev.tarjetas && prev.tarjetas.length > 0 ? prev.tarjetas : initialTarjetas).map((t) => ({
+        ...t,
+        ultimoExtracto: undefined,
+      }))
+
+      const gastosSinTarjetas = (prev.gastosPersonales || []).filter(
+        (g) => !g.tarjetaId && g.metodoPago !== 'TARJETA_CREDITO' && !g.id.includes('nu') && !g.id.includes('bc')
+      )
+
+      return {
+        ...prev,
+        tarjetas: tarjetasLimpias,
+        comprasCuotas: [],
+        gastosPersonales: gastosSinTarjetas,
+      }
+    })
+    showToast('Tarjetas listas y en blanco', 'Extractos y movimientos restablecidos para tu prueba')
+  }, [updateAndSaveState, showToast])
+
   const resetData = useCallback(() => {
     clearAllData()
   }, [clearAllData])
@@ -1263,8 +1389,9 @@ export function FinanceProvider({ children }: { children: ReactNode }) {
         setPresupuesto,
         deletePresupuesto,
         resetData,
-        loadSampleData,
         clearAllData,
+        limpiarDatosTarjetas,
+        loadSampleData,
         exportBackup,
         importBackup,
         syncFirebase,

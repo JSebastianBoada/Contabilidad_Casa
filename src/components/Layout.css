@@ -27,8 +27,54 @@
   z-index: 50;
   flex-shrink: 0;
   box-shadow: var(--shadow-xs);
-  transition: transform var(--transition-base), box-shadow var(--transition-base), background-color var(--transition-base), border-color var(--transition-base);
+  transition: width 0.25s cubic-bezier(0.4, 0, 0.2, 1), transform 0.25s cubic-bezier(0.4, 0, 0.2, 1), box-shadow var(--transition-base), background-color var(--transition-base), border-color var(--transition-base);
   overflow-y: auto;
+  overflow-x: hidden;
+}
+
+/* Sidebar Collapsed State (Desktop) */
+.app-sidebar.collapsed {
+  width: 76px;
+  padding: 1.25rem 0.5rem;
+}
+
+.app-sidebar.collapsed .brand-titles,
+.app-sidebar.collapsed .user-info-text,
+.app-sidebar.collapsed .logout-btn,
+.app-sidebar.collapsed .nav-section-label,
+.app-sidebar.collapsed .nav-link span,
+.app-sidebar.collapsed .sidebar-footer span:last-child {
+  display: none !important;
+}
+
+.app-sidebar.collapsed .brand-row {
+  justify-content: center;
+}
+
+.app-sidebar.collapsed .user-profile-card {
+  padding: 0.4rem;
+  justify-content: center;
+}
+
+.app-sidebar.collapsed .nav-link {
+  justify-content: center;
+  padding: 0.75rem 0.5rem;
+  gap: 0;
+}
+
+.app-sidebar.collapsed .nav-link svg {
+  margin: 0;
+  width: 22px;
+  height: 22px;
+}
+
+.app-sidebar.collapsed .sidebar-footer {
+  justify-content: center;
+  padding: 0.5rem 0;
+}
+
+.app-sidebar.collapsed .sidebar-close-btn {
+  display: none !important;
 }
 
 /* Brand */
@@ -86,7 +132,24 @@
 }
 
 .sidebar-close-btn {
-  display: none;
+  display: inline-flex;
+  position: absolute;
+  right: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: var(--radius-md);
+  color: var(--color-text-muted);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.sidebar-close-btn:hover {
+  background-color: var(--color-bg-alt);
+  color: var(--color-text-main);
 }
 
 /* User Profile Card in Sidebar */
@@ -271,11 +334,25 @@
 }
 
 .menu-toggle-btn {
-  display: none;
-  padding: 0.5rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 38px;
+  height: 38px;
   border-radius: var(--radius-md);
+  border: 1px solid var(--color-border);
+  background-color: var(--color-surface);
   color: var(--color-text-main);
+  transition: all var(--transition-fast);
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.menu-toggle-btn:hover {
   background-color: var(--color-bg-alt);
+  border-color: var(--color-border-strong);
+  color: var(--color-primary-light);
+  transform: translateY(-1px);
 }
 
 .month-selector {
@@ -361,24 +438,12 @@
 
 /* Responsive Media Queries */
 @media (max-width: 992px) {
-  .menu-toggle-btn {
-    display: flex;
-  }
-
-  .sidebar-close-btn {
-    display: flex;
-    position: absolute;
-    right: 0;
-    top: 50%;
-    transform: translateY(-50%);
-  }
-
   .app-sidebar {
     position: fixed;
     top: 0;
     bottom: 0;
     left: 0;
-    width: 290px;
+    width: 290px !important;
     max-width: 85vw;
     transform: translateX(-100%);
     box-shadow: var(--shadow-xl);
@@ -387,6 +452,29 @@
 
   .app-sidebar.open {
     transform: translateX(0);
+  }
+
+  .app-sidebar.collapsed .brand-titles,
+  .app-sidebar.collapsed .user-info-text,
+  .app-sidebar.collapsed .logout-btn,
+  .app-sidebar.collapsed .nav-section-label,
+  .app-sidebar.collapsed .nav-link span,
+  .app-sidebar.collapsed .sidebar-footer span:last-child {
+    display: flex !important;
+  }
+
+  .app-sidebar.collapsed .brand-row {
+    justify-content: flex-start;
+  }
+
+  .app-sidebar.collapsed .nav-link {
+    justify-content: flex-start;
+    padding: 0.75rem 1rem;
+    gap: 0.85rem;
+  }
+
+  .app-sidebar.collapsed .sidebar-close-btn {
+    display: inline-flex !important;
   }
 
   .sidebar-backdrop {

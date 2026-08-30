@@ -3,13 +3,12 @@ import { useFinance } from '../context/FinanceContext'
 import { Modal } from '../components/Modal'
 import { DatePickerInput } from '../components/DatePickerInput'
 import { formatMoney, formatDate, formatMonthYear, getDaysRemaining } from '../utils/formatters'
-import type { ArriendoVivienda, CategoriaCompraHogar, ServicioPublico, TipoServicioPublico } from '../types/finance'
+import type { ArriendoVivienda, CategoriaCompraHogar, ServicioPublico, TipoServicioPublico, ResponsableGastoHogar } from '../types/finance'
 
 export function HogarPage() {
   const {
     state,
     selectedMonth,
-    totalGastosHogarMes,
     addServicio,
     updateServicio,
     togglePagoServicio,
@@ -20,6 +19,7 @@ export function HogarPage() {
     deleteArriendo,
     addCompraHogar,
     deleteCompraHogar,
+    showToast,
   } = useFinance()
 
   const [activeTab, setActiveTab] = useState<'SERVICIOS' | 'ARRIENDO' | 'COMPRAS'>('SERVICIOS')
@@ -40,6 +40,8 @@ export function HogarPage() {
   const [fechaVencServ, setFechaVencServ] = useState(`${selectedMonth}-15`)
   const [consumoServ, setConsumoServ] = useState('')
   const [cuentaServId, setCuentaServId] = useState(state.cuentas[0]?.id || '')
+  const [responsableServ, setResponsableServ] = useState<ResponsableGastoHogar>('MAMA')
+  const [esEstimadoServ, setEsEstimadoServ] = useState(false)
 
   // Form State Arriendo
   const [montoArr, setMontoArr] = useState('')
@@ -141,6 +143,8 @@ export function HogarPage() {
     setMontoServ('')
     setFechaVencServ(`${selectedMonth}-15`)
     setConsumoServ('')
+    setResponsableServ('MAMA')
+    setEsEstimadoServ(false)
     setModalServicioOpen(true)
   }
 
@@ -153,6 +157,8 @@ export function HogarPage() {
     setFechaVencServ(s.fechaVencimiento)
     setConsumoServ(s.consumo || '')
     setCuentaServId(s.cuentaId || state.cuentas[0]?.id || '')
+    setResponsableServ(s.responsablePago || 'MAMA')
+    setEsEstimadoServ(Boolean(s.esEstimado))
     setModalServicioOpen(true)
   }
 
@@ -175,6 +181,8 @@ export function HogarPage() {
         fechaVencimiento: fechaVencServ,
         consumo: consumoServ || undefined,
         cuentaId: cuentaServId || undefined,
+        responsablePago: responsableServ,
+        esEstimado: esEstimadoServ,
       })
     } else {
       addServicio({
@@ -186,6 +194,8 @@ export function HogarPage() {
         periodo: selectedMonth,
         consumo: consumoServ || undefined,
         cuentaId: cuentaServId || undefined,
+        responsablePago: responsableServ,
+        esEstimado: esEstimadoServ,
       })
     }
 
@@ -194,6 +204,42 @@ export function HogarPage() {
     setConsumoServ('')
     setEditingServicioId(null)
     setModalServicioOpen(false)
+  }
+
+  // Precargar los 4 servicios típicos para el mes con asignación a Mamá y valor estimado
+  function handlePrecargarRecibosSeptiembre() {
+    const tiposExistentes = (serviciosMes || []).map((s) => s.tipo)
+    const serviciosSugeridos = [
+      { tipo: 'ENERGIA' as const, nombre: 'Energía / Luz (EPM / CENS)', monto: 140000, dia: '18', consumo: '160 kWh' },
+      { tipo: 'GAS' as const, nombre: 'Gas Natural Domiciliario', monto: 35000, dia: '25', consumo: '18 m³' },
+      { tipo: 'AGUA' as const, nombre: 'Acueducto & Alcantarillado', monto: 85000, dia: '22', consumo: '15 m³' },
+      { tipo: 'INTERNET' as const, nombre: 'Internet Fibra Óptica 300 Mbps', monto: 90000, dia: '12', consumo: '300 Mbps' },
+    ]
+
+    let agregados = 0
+    serviciosSugeridos.forEach((sug) => {
+      if (!tiposExistentes.includes(sug.tipo)) {
+        addServicio({
+          tipo: sug.tipo,
+          nombre: sug.nombre,
+          monto: sug.monto,
+          fechaVencimiento: `${selectedMonth}-${sug.dia}`,
+          pagado: false,
+          periodo: selectedMonth,
+          consumo: sug.consumo,
+          responsablePago: 'MAMA',
+          esEstimado: true,
+          notas: 'Recibo mensual pagado por Mamá (Valor estimado)',
+        })
+        agregados++
+      }
+    })
+
+    if (agregados > 0) {
+      showToast('Recibos precargados', `Se agregaron ${agregados} recibos para ${formatMonthYear(selectedMonth)} con pago asignado a Mamá`)
+    } else {
+      showToast('Recibos ya existentes', 'Los 4 servicios ya están registrados en este mes', 'info')
+    }
   }
 
   function handleAddOrUpdateArriendo(e: FormEvent) {
@@ -249,6 +295,21 @@ export function HogarPage() {
     setModalCompraOpen(false)
   }
 
+  // Totales desagregados por responsable del gasto
+  const totalArriendoAsumidoYo = useMemo(() => {
+    return arriendoMes ? arriendoMes.monto : 0
+  }, [arriendoMes])
+
+  const totalServiciosMama = useMemo(() => {
+    return serviciosMes
+      .filter((s) => (s.responsablePago || 'MAMA') === 'MAMA')
+      .reduce((acc, s) => acc + s.monto, 0)
+  }, [serviciosMes])
+
+  const totalComprasHogar = useMemo(() => {
+    return comprasHogarMes.reduce((acc, c) => acc + c.monto, 0)
+  }, [comprasHogarMes])
+
   return (
     <div className="page">
       {/* Header */}
@@ -261,17 +322,19 @@ export function HogarPage() {
             </svg>
             Hogar, Arriendo & Servicios Públicos
           </h1>
-          <p>Control de recibos (Energía, Gas, Agua, Internet), arriendo mensual y compras del hogar.</p>
+          <p>Gestión del arriendo asumido por ti, servicios públicos asumidos por Mamá (Luz, Gas, Agua, Internet) y compras del hogar.</p>
         </div>
 
         <div className="page-header-actions">
-          <div className="badge primary" style={{ fontSize: '0.85rem', padding: '0.4rem 0.8rem' }}>
-            Total Hogar Mes: <strong>{formatMoney(totalGastosHogarMes)}</strong>
-          </div>
           {activeTab === 'SERVICIOS' && (
-            <button type="button" className="btn primary" onClick={openNewServicioModal}>
-              + Agregar Recibo
-            </button>
+            <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+              <button type="button" className="btn secondary sm" onClick={handlePrecargarRecibosSeptiembre}>
+                ⚡ Precargar Recibos (Pago Mamá)
+              </button>
+              <button type="button" className="btn primary sm" onClick={openNewServicioModal}>
+                + Agregar Recibo
+              </button>
+            </div>
           )}
           {activeTab === 'ARRIENDO' && (
             <button type="button" className="btn primary" onClick={openNewArriendoModal}>
@@ -283,6 +346,53 @@ export function HogarPage() {
               + Compra de Hogar
             </button>
           )}
+        </div>
+      </div>
+
+      {/* Tarjetas de Distribución Familiar de Gastos del Hogar */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '1rem', marginBottom: '1.5rem' }}>
+        {/* Card 1: Arriendo asumido por Ti */}
+        <div className="panel" style={{ margin: 0, padding: '1rem 1.25rem', borderLeft: '4px solid var(--color-primary-light)' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.35rem' }}>
+            <span style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--color-text-muted)' }}>👤 Asumido por Ti (Arriendo)</span>
+            <span className="badge primary" style={{ fontSize: '0.7rem' }}>Vivienda</span>
+          </div>
+          <strong style={{ fontSize: '1.4rem', color: 'var(--color-text-main)' }}>
+            {formatMoney(totalArriendoAsumidoYo)}
+          </strong>
+          <span style={{ fontSize: '0.725rem', color: 'var(--color-text-muted)', display: 'block', marginTop: '2px' }}>
+            {arriendoMes ? (arriendoMes.pagado ? '✓ Arriendo pagado este mes' : '⏳ Pendiente de pago') : 'Sin registrar este mes'}
+          </span>
+        </div>
+
+        {/* Card 2: Servicios asumidos por Mamá */}
+        <div className="panel" style={{ margin: 0, padding: '1rem 1.25rem', borderLeft: '4px solid #db2777' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.35rem' }}>
+            <span style={{ fontSize: '0.8rem', fontWeight: 600, color: '#db2777' }}>👩‍👧 Asumido por Mamá (Servicios)</span>
+            <span className="badge" style={{ backgroundColor: 'rgba(219, 39, 119, 0.12)', color: '#db2777', fontSize: '0.7rem' }}>
+              4 Recibos
+            </span>
+          </div>
+          <strong style={{ fontSize: '1.4rem', color: '#db2777' }}>
+            {formatMoney(totalServiciosMama)}
+          </strong>
+          <span style={{ fontSize: '0.725rem', color: 'var(--color-text-muted)', display: 'block', marginTop: '2px' }}>
+            Luz, Gas, Agua, Internet (No afecta tu liquidez)
+          </span>
+        </div>
+
+        {/* Card 3: Compras & Total Hogar */}
+        <div className="panel" style={{ margin: 0, padding: '1rem 1.25rem', borderLeft: '4px solid var(--color-income)' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.35rem' }}>
+            <span style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--color-text-muted)' }}>🛒 Compras + Total Hogar</span>
+            <span className="badge income" style={{ fontSize: '0.7rem' }}>Total</span>
+          </div>
+          <strong style={{ fontSize: '1.4rem', color: 'var(--color-text-main)' }}>
+            {formatMoney(totalArriendoAsumidoYo + totalServiciosMama + totalComprasHogar)}
+          </strong>
+          <span style={{ fontSize: '0.725rem', color: 'var(--color-text-muted)', display: 'block', marginTop: '2px' }}>
+            Compras hogar: {formatMoney(totalComprasHogar)}
+          </span>
         </div>
       </div>
 
@@ -322,6 +432,8 @@ export function HogarPage() {
               if (s.tipo === 'AGUA') iconEmoji = '💧'
               if (s.tipo === 'INTERNET') iconEmoji = '🌐'
 
+              const esDeMama = (s.responsablePago || 'MAMA') === 'MAMA'
+
               return (
                 <article
                   key={s.id}
@@ -330,11 +442,32 @@ export function HogarPage() {
                   <div className="service-card-header">
                     <div className="service-card-title-group">
                       <div className="service-icon-badge">{iconEmoji}</div>
-                      <strong className="service-card-name">{s.nombre}</strong>
+                      <div>
+                        <strong className="service-card-name">{s.nombre}</strong>
+                        <div style={{ display: 'flex', gap: '0.35rem', marginTop: '2px' }}>
+                          <span
+                            className="badge"
+                            style={{
+                              fontSize: '0.675rem',
+                              padding: '0.15rem 0.45rem',
+                              backgroundColor: esDeMama ? 'rgba(219, 39, 119, 0.12)' : 'rgba(59, 130, 246, 0.12)',
+                              color: esDeMama ? '#db2777' : '#2563eb',
+                              fontWeight: 700,
+                            }}
+                          >
+                            {esDeMama ? '👩‍👧 Paga Mamá' : s.responsablePago === 'COMPARTIDO' ? '🤝 Compartido' : '👤 Pagas Tú'}
+                          </span>
+                          {s.esEstimado && (
+                            <span className="badge neutral" style={{ fontSize: '0.675rem', padding: '0.15rem 0.45rem' }}>
+                              ⏳ Estimado
+                            </span>
+                          )}
+                        </div>
+                      </div>
                     </div>
 
                     <span className={`badge ${s.pagado ? 'income' : 'warning'}`}>
-                      {s.pagado ? '✓ Pagado' : 'Pendiente'}
+                      {s.pagado ? (esDeMama ? '✓ Pagado por Mamá' : '✓ Pagado') : 'Pendiente'}
                     </span>
                   </div>
 
@@ -369,7 +502,11 @@ export function HogarPage() {
                       style={{ flex: 1 }}
                       onClick={() => togglePagoServicio(s.id)}
                     >
-                      {s.pagado ? 'Marcar como Pendiente' : '✓ Registrar Pago'}
+                      {s.pagado
+                        ? 'Marcar como Pendiente'
+                        : esDeMama
+                        ? '✓ Marcar Pagado por Mamá'
+                        : '✓ Registrar Pago'}
                     </button>
 
                     <button
@@ -408,14 +545,22 @@ export function HogarPage() {
               <p style={{ color: 'var(--color-text-muted)' }}>
                 No hay recibos de servicios públicos registrados para {formatMonthYear(selectedMonth)}.
               </p>
-              <button
-                type="button"
-                className="btn primary sm"
-                style={{ marginTop: '1rem' }}
-                onClick={openNewServicioModal}
-              >
-                + Agregar Recibo (Luz, Gas, Agua, Internet)
-              </button>
+              <div style={{ display: 'flex', justifyContent: 'center', gap: '0.75rem', marginTop: '1rem', flexWrap: 'wrap' }}>
+                <button
+                  type="button"
+                  className="btn primary sm"
+                  onClick={handlePrecargarRecibosSeptiembre}
+                >
+                  ⚡ Precargar Recibos (Luz, Gas, Agua, Internet - Pago Mamá)
+                </button>
+                <button
+                  type="button"
+                  className="btn secondary sm"
+                  onClick={openNewServicioModal}
+                >
+                  + Agregar Recibo Manual
+                </button>
+              </div>
             </div>
           )}
         </div>
@@ -730,17 +875,64 @@ export function HogarPage() {
               />
             </div>
 
-            <div className="form-group">
-              <label>Cuenta de Pago Sugerida</label>
-              <select className="form-select" value={cuentaServId} onChange={(e) => setCuentaServId(e.target.value)}>
-                {(state.cuentas || []).map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.nombre}
-                  </option>
-                ))}
-              </select>
+              <div className="form-group">
+                <label>Cuenta de Pago (Si pagas tú)</label>
+                <select className="form-select" value={cuentaServId} onChange={(e) => setCuentaServId(e.target.value)} disabled={responsableServ === 'MAMA'}>
+                  {(state.cuentas || []).map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.nombre}
+                    </option>
+                  ))}
+                </select>
+              </div>
             </div>
-          </div>
+
+            {/* SECCIÓN DE RESPONSABILIDAD DEL PAGO (MAMÁ vs YO) */}
+            <div className="form-group" style={{ backgroundColor: 'var(--color-bg-alt)', padding: '0.85rem 1rem', borderRadius: 'var(--radius-md)', border: '1px solid var(--color-border)' }}>
+              <label style={{ fontWeight: 700, marginBottom: '0.4rem', display: 'block' }}>
+                ¿Quién asume y paga este recibo? *
+              </label>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.65rem' }}>
+                <button
+                  type="button"
+                  className={`btn sm ${responsableServ === 'MAMA' ? 'primary' : 'secondary'}`}
+                  onClick={() => setResponsableServ('MAMA')}
+                  style={{
+                    justifyContent: 'center',
+                    backgroundColor: responsableServ === 'MAMA' ? '#db2777' : undefined,
+                    borderColor: responsableServ === 'MAMA' ? '#db2777' : undefined,
+                    color: responsableServ === 'MAMA' ? '#ffffff' : undefined,
+                  }}
+                >
+                  👩‍👧 Mamá (Madre)
+                </button>
+                <button
+                  type="button"
+                  className={`btn sm ${responsableServ === 'YO' ? 'primary' : 'secondary'}`}
+                  onClick={() => setResponsableServ('YO')}
+                  style={{ justifyContent: 'center' }}
+                >
+                  👤 Yo (Usuario)
+                </button>
+              </div>
+              <span style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)', display: 'block', marginTop: '0.45rem' }}>
+                {responsableServ === 'MAMA'
+                  ? '💡 Lo paga Mamá: Al marcarlo como pagado NO descontará dinero de tus cuentas bancarias.'
+                  : '💳 Lo pagas tú: Al marcarlo como pagado se debitará de tu cuenta seleccionada.'}
+              </span>
+            </div>
+
+            {/* CHECKBOX DE ESTIMADO SI NO HA LLEGADO LA FACTURA */}
+            <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', padding: '0.25rem 0' }}>
+              <input
+                type="checkbox"
+                checked={esEstimadoServ}
+                onChange={(e) => setEsEstimadoServ(e.target.checked)}
+              />
+              <span style={{ fontSize: '0.85rem', color: 'var(--color-text-main)' }}>
+                ⏳ Aún no ha llegado el recibo (Marcar como valor estimado pendiente)
+              </span>
+            </label>
 
           <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.75rem', marginTop: '0.5rem' }}>
             <button

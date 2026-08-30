@@ -573,7 +573,7 @@
   flex-shrink: 0;
 }
 
-/* Tablas Responsivas con scroll táctil */
+/* Tablas Responsivas con scroll táctil y diseño premium */
 .table-container {
   width: 100%;
   overflow-x: auto;
@@ -581,14 +581,38 @@
   border-radius: var(--radius-md);
   border: 1px solid var(--color-border);
   background: var(--color-surface);
+  box-shadow: var(--shadow-xs);
+}
+
+.table-container::-webkit-scrollbar {
+  height: 8px;
+}
+
+.table-container::-webkit-scrollbar-track {
+  background: var(--color-bg-alt);
+  border-radius: var(--radius-pill);
+}
+
+.table-container::-webkit-scrollbar-thumb {
+  background: var(--color-border-strong);
+  border-radius: var(--radius-pill);
+}
+
+.table-container::-webkit-scrollbar-thumb:hover {
+  background: var(--color-text-muted);
 }
 
 table {
   width: 100%;
-  min-width: 520px;
-  border-collapse: collapse;
+  min-width: 680px;
+  border-collapse: separate;
+  border-spacing: 0;
   text-align: left;
   font-size: 0.85rem;
+}
+
+table.table-wide {
+  min-width: 980px;
 }
 
 thead {
@@ -597,28 +621,48 @@ thead {
 }
 
 th {
-  padding: 0.7rem 0.85rem;
-  font-weight: 600;
+  padding: 0.8rem 0.95rem;
+  font-weight: 700;
   color: var(--color-text-muted);
   font-size: 0.725rem;
   text-transform: uppercase;
-  letter-spacing: 0.05em;
+  letter-spacing: 0.06em;
   white-space: nowrap;
+  border-bottom: 1px solid var(--color-border);
 }
 
 td {
-  padding: 0.8rem 0.85rem;
+  padding: 0.85rem 0.95rem;
   border-bottom: 1px solid var(--color-border);
   color: var(--color-text-main);
   vertical-align: middle;
+  transition: background-color var(--transition-fast);
 }
 
 tbody tr:last-child td {
   border-bottom: none;
 }
 
-tbody tr:hover {
-  background-color: #f8fafc;
+tbody tr {
+  transition: background-color var(--transition-fast);
+}
+
+tbody tr:hover td {
+  background-color: var(--color-bg-alt);
+}
+
+.table-actions-cell {
+  min-width: 230px;
+  text-align: right;
+  white-space: nowrap;
+}
+
+.table-actions-group {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.4rem;
+  flex-wrap: nowrap;
 }
 
 /* Formularios & Inputs */
@@ -642,12 +686,13 @@ tbody tr:hover {
 
 .form-input, .form-select, .form-textarea {
   width: 100%;
-  padding: 0.6rem 0.75rem;
+  padding: 0.65rem 0.85rem;
   border-radius: var(--radius-md);
   border: 1px solid var(--color-border);
   background-color: var(--color-surface);
   color: var(--color-text-main);
   font-size: 0.875rem;
+  font-family: inherit;
   transition: border-color var(--transition-fast), box-shadow var(--transition-fast), background-color var(--transition-fast);
   outline: none;
 }
@@ -658,10 +703,11 @@ tbody tr:hover {
   -moz-appearance: none;
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%2364748b' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
   background-repeat: no-repeat;
-  background-position: right 0.75rem center;
+  background-position: right 0.85rem center;
   background-size: 16px 16px;
-  padding-right: 2.35rem;
+  padding-right: 2.5rem;
   cursor: pointer;
+  font-weight: 500;
 }
 
 :root[data-theme='dark'] .form-select {
@@ -671,13 +717,13 @@ tbody tr:hover {
 select option, select optgroup {
   background-color: var(--color-surface);
   color: var(--color-text-main);
-  padding: 0.6rem;
+  padding: 0.65rem;
   font-size: 0.875rem;
 }
 
 .form-input:focus, .form-select:focus, .form-textarea:focus {
   border-color: var(--color-primary-light);
-  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.18);
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.22);
 }
 
 .form-textarea {

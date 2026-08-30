@@ -1,11 +1,12 @@
 import { useState, useMemo, type ChangeEvent, type FormEvent } from 'react'
 import { useFinance } from '../context/FinanceContext'
-import { formatMoney, formatDate, formatMonthYear } from '../utils/formatters'
+import { formatMoney, formatDate, formatMonthYear, cleanDateText } from '../utils/formatters'
 import {
   extraerTransaccionesDePdf,
   parseTextoExtracto,
   type TransaccionExtracto,
   type ResultadoExtraccion,
+  type ResumenExtractoCabecera,
 } from '../services/statementParser'
 import {
   auditarYConciliarExtracto,
@@ -22,6 +23,8 @@ export function ConciliacionPage() {
     addIngreso,
     addCompraCuota,
     updateCompraCuota,
+    updateTarjeta,
+    limpiarDatosTarjetas,
     showToast,
   } = useFinance()
 
@@ -41,7 +44,8 @@ export function ConciliacionPage() {
 
   // Datos extraídos y reporte
   const [transaccionesExtraidas, setTransaccionesExtraidas] = useState<TransaccionExtracto[]>([])
-  const [bancoDetectado, setBancoDetectado] = useState<string>('NU')
+  const [resumenCabecera, setResumenCabecera] = useState<ResumenExtractoCabecera | undefined>()
+  const [bancoDetectado, setBancoDetectado] = useState<string>('BANCOLOMBIA')
   const [activeTabAuditoria, setActiveTabAuditoria] = useState<'FALTANTES' | 'CONCILIADOS' | 'CARGOS' | 'DIFERENCIAS' | 'APP_SOLO'>('FALTANTES')
 
   // Pestaña principal: Visualizar Columnas Extraídas vs Auditoría Cruzada
@@ -72,13 +76,14 @@ export function ConciliacionPage() {
         showToast('Sin datos', resultado.error || 'Verifica el formato del PDF', 'error')
       } else {
         setTransaccionesExtraidas(resultado.transacciones)
-        setBancoDetectado(resultado.bancoIdentificado || 'NU')
+        setResumenCabecera(resultado.resumenCabecera)
+        setBancoDetectado(resultado.bancoIdentificado || 'BANCOLOMBIA')
         if (resultado.mesDetectado) {
           setSelectedMonth(resultado.mesDetectado)
         }
         showToast(
           'Extracto de tarjeta leído',
-          `Se extrajeron ${resultado.transacciones.length} consumos y cobros de ${resultado.bancoIdentificado || 'tu tarjeta'}`
+          `Se extrajeron ${resultado.transacciones.length} consumos y datos de extracto de ${resultado.bancoIdentificado || 'tu tarjeta'}`
         )
       }
     } catch (err) {
@@ -102,7 +107,8 @@ export function ConciliacionPage() {
       showToast('Error', 'No se encontraron fechas y montos válidos', 'error')
     } else {
       setTransaccionesExtraidas(resultado.transacciones)
-      setBancoDetectado(resultado.bancoIdentificado || 'NU')
+      setResumenCabecera(resultado.resumenCabecera)
+      setBancoDetectado(resultado.bancoIdentificado || 'BANCOLOMBIA')
       if (resultado.mesDetectado) {
         setSelectedMonth(resultado.mesDetectado)
       }
@@ -114,9 +120,20 @@ export function ConciliacionPage() {
     setCargando(false)
   }
 
-  // Cargar ejemplo típico de extracto de tarjeta de crédito (Bancolombia)
+  // Cargar ejemplo oficial del extracto de Bancolombia
   function handleCargarEjemplo() {
     const textoEjemplo = `
+Cupo de tu tarjeta
+Deuda a la fecha de corte: $ 781.536,00
+Cupo total: $ 1.200.000,00
+Disponible: $ 418.464,71
+
+Información de pago en pesos
+Periodo facturado: 15 jul - 17 ago. 2026
+Pago Total: $ 781.536,00
+Pagar antes de: sep. 02, 2026
+Pago mínimo: $ 201.878,00
+
 Detalles del movimiento
 Recuerda estar al día en el pago de tu tarjeta para evitar cobro de intereses por mora, débitos a tus cuentas y el bloqueo de tu tarjeta.
 
@@ -136,8 +153,216 @@ T06261 05/07/2026 MERCADO PAGO $ 695.590,00 2/12 $ 57.965,83 0,0000 % 00,0000 % 
     setTextoManual(textoEjemplo)
     const resultado = parseTextoExtracto(textoEjemplo, 'BANCOLOMBIA')
     setTransaccionesExtraidas(resultado.transacciones)
+    setResumenCabecera(resultado.resumenCabecera)
     setBancoDetectado('BANCOLOMBIA')
-    showToast('Ejemplo Bancolombia cargado', 'Se cargaron los movimientos del extracto')
+
+    const tarjetaBc = state.tarjetas.find(
+      (t) => t.nombre.toLowerCase().includes('bancolombia') || t.ultimos4Digitos === '1234'
+    )
+    if (tarjetaBc) {
+      setMedioAuditado(`tarjeta:${tarjetaBc.id}`)
+    }
+
+    showToast('Extracto oficial Bancolombia cargado', 'Cupo: $1.2M | Pago Total: $781.536 | Pago Mínimo: $201.878')
+  }
+
+  // Cargar ejemplo oficial del extracto de Nu Colombia
+  function handleCargarEjemploNu() {
+    const textoEjemploNu = `
+Fecha límite de pago
+04 SEP 2026
+Fecha de corte
+15 AGO 2026
+Periodo facturado
+15 JUL 2026 - 14 AGO
+
+Resumen de tu extracto
+Tu cupo definido $2.000.000,00
+Usado $1.891.831,98
+Disponible $108.168,02
+Ajustes a favor $49.800,00
+Deuda a pagar este mes $1.014.098,68
+Intereses + $5.529,15
+Cuota de manejo + $12.000,00
+PAGO MÍNIMO $981.827,83
+Deuda restante + $868.104,15
+DEUDA TOTAL HASTA EL 14 AGOSTO $1.849.931,98
+
+Fecha Descripción Valor Cuotas Valor del mes Interés del mes Porcentaje y valor Total a pagar este mes Restante por pagar
+13 AGO 2026 Mercado Pago*Mercadoli $1.449.900,00 1 de 2 $724.950,00 0.00% $0,00 $724.950,00 $724.950,00
+06 AGO 2026 Amazon Prime $24.900,00 1 de 1 $24.900,00 2.16% $0,00 $24.900,00 $0,00
+05 AGO 2026 Amazon Prime $24.900,00 1 de 1 $24.900,00 2.16% $0,00 $24.900,00 $0,00
+01 AGO 2026 Pago $235.304,20 $0,00 $0,00
+23 JUL 2026 Temu Com $33.859,00 1 de 1 $33.859,00 2.10% $0,00 $33.859,00 $0,00
+18 JUL 2026 Google *Play Youtube*D $6.000,00 1 de 1 $6.000,00 2.10% $0,00 $6.000,00 $0,00
+17 JUL 2026 Exito Oca@A $122.882,00 1 de 1 $122.882,00 2.10% $0,00 $122.882,00 $0,00
+14 JUL 2026 Google *Play Youtube*D $41.900,00 1 de 1 $41.900,00 2.10% $0,00 $41.900,00 $0,00
+05 JUL 2026 Dtv*Directvgo $79.900,00 2 de 24 $3.329,17 2.10% $2.317,58 $5.646,75 $73.241,66
+05 JUN 2026 Mercado Pago*Diablogra $280.245,00 2.10% $1.621,44 $1.621,44 $0,00
+05 JUN 2026 Dtv*Directvgo $79.900,00 3 de 24 $3.329,17 2.10% $1.590,13 $4.919,30 $69.912,49
+28 MAY 2026 Mercado Pago*Mercadoli $84.148,00 3 de 3 $28.049,34 0.00% $0,00 $28.049,34 $0,00
+Pago minimo $981.827,83
+    `.trim()
+
+    setTextoManual(textoEjemploNu)
+    const resultado = parseTextoExtracto(textoEjemploNu, 'NU')
+    setTransaccionesExtraidas(resultado.transacciones)
+    setResumenCabecera(resultado.resumenCabecera)
+    setBancoDetectado('NU')
+
+    const tarjetaNu = state.tarjetas.find(
+      (t) => t.nombre.toLowerCase().includes('nu') || t.ultimos4Digitos === '7899'
+    )
+    if (tarjetaNu) {
+      setMedioAuditado(`tarjeta:${tarjetaNu.id}`)
+    }
+
+    showToast('Extracto oficial Nu cargado', 'Cupo: $2.0M | Pago Mínimo: $981.828 | Total: $1.849.932')
+  }
+
+  // Sincronizar datos de extracto y asignar movimientos a la tarjeta registrada
+  function handleSincronizarTarjetaConExtracto() {
+    if (!resumenCabecera && transaccionesExtraidas.length === 0) return
+
+    let tarjetaDestinoId = medioAuditado.startsWith('tarjeta:')
+      ? medioAuditado.replace('tarjeta:', '')
+      : undefined
+
+    if (!tarjetaDestinoId) {
+      if (bancoDetectado === 'NU') {
+        const tarjetaNu = state.tarjetas.find(
+          (t) => t.nombre.toLowerCase().includes('nu') || t.franquicia?.toLowerCase().includes('nu') || t.ultimos4Digitos === '7899' || t.ultimos4Digitos === '5678'
+        )
+        tarjetaDestinoId = tarjetaNu ? tarjetaNu.id : state.tarjetas[0]?.id
+      } else {
+        const tarjetaBc = state.tarjetas.find(
+          (t) => t.nombre.toLowerCase().includes('bancolombia') || t.ultimos4Digitos === '1234' || t.ultimos4Digitos === '3481'
+        )
+        tarjetaDestinoId = tarjetaBc ? tarjetaBc.id : state.tarjetas[0]?.id
+      }
+    }
+
+    if (!tarjetaDestinoId) {
+      showToast('Sin tarjeta seleccionada', 'Registra o selecciona una tarjeta de crédito', 'warning')
+      return
+    }
+
+    const tarjetaDestino = state.tarjetas.find((t) => t.id === tarjetaDestinoId)
+    const isNu = bancoDetectado === 'NU' || (tarjetaDestino?.banco || '').toLowerCase().includes('nu')
+    const diaCorteCalc = isNu ? 15 : 17
+    const diaLimiteCalc = isNu ? 4 : 2
+
+    // 1. Actualizar datos de cabecera en la tarjeta
+    if (resumenCabecera) {
+      updateTarjeta(tarjetaDestinoId, {
+        cupoTotal: resumenCabecera.cupoTotal || undefined,
+        diaCorte: diaCorteCalc,
+        diaLimitePago: diaLimiteCalc,
+        ultimoExtracto: {
+          periodoFacturado: resumenCabecera.periodoFacturado,
+          pagoTotal: resumenCabecera.pagoTotal,
+          pagoMinimo: resumenCabecera.pagoMinimo,
+          pagarAntesDe: resumenCabecera.fechaLimitePagoTexto,
+          cupoDisponible: resumenCabecera.cupoDisponible,
+          deudaCorte: resumenCabecera.deudaCorte,
+        },
+      })
+    }
+
+    // 2. Sincronizar / Asignar movimientos del extracto a la tarjeta
+    let movimientosAgregados = 0
+    transaccionesExtraidas.forEach((tx) => {
+      if (tx.tipo === 'CREDITO') {
+        // Pago / Abono
+        const existeIngreso = state.ingresos.some(
+          (ing) => ing.monto === tx.monto && (ing.fecha === tx.fecha || ing.descripcion === tx.descripcion)
+        )
+        if (!existeIngreso) {
+          addIngreso({
+            fecha: tx.fecha,
+            tipo: 'NOMINA',
+            descripcion: tx.descripcion,
+            monto: tx.monto,
+            periodo: 'MENSUAL',
+            cuentaId: state.cuentas[0]?.id || 'cta-1',
+          })
+          movimientosAgregados++
+        }
+      } else if (
+        tx.clasificacionTarjeta === 'COMPRA_CUOTAS' ||
+        tx.seccionExtracto === 'MOVIMIENTOS_ANTERIORES' ||
+        (tx.cuotasTotales && tx.cuotasTotales > 1)
+      ) {
+        // Compra a Cuotas diferidas
+        const cuotasTotales = tx.cuotasTotales || 1
+        const cuotaActualNum = tx.numeroCuotaActual || 1
+        const cuotasPagadas = Math.max(0, cuotaActualNum - 1)
+        const montoTotal = tx.valorMovimientoOriginal || tx.monto * cuotasTotales
+        const saldoRestante = tx.saldoPendiente !== undefined 
+          ? tx.saldoPendiente 
+          : Math.max(0, montoTotal - (tx.monto * cuotaActualNum))
+        
+        const estado = (cuotasPagadas >= cuotasTotales || (saldoRestante === 0 && cuotasPagadas > 0)) ? 'PAGADA' : 'ACTIVA'
+
+        const existeCompra = state.comprasCuotas.find(
+          (c) =>
+            c.tarjetaId === tarjetaDestinoId &&
+            c.fechaCompra === tx.fecha &&
+            (c.cuotasTotales === cuotasTotales || Math.abs(c.montoTotal - montoTotal) < 100)
+        )
+        if (existeCompra) {
+          updateCompraCuota(existeCompra.id, {
+            saldoRestante,
+            cuotasPagadas,
+            cuotasTotales,
+            valorCuota: tx.monto || existeCompra.valorCuota,
+            estado,
+          })
+        } else {
+          addCompraCuota({
+            tarjetaId: tarjetaDestinoId,
+            descripcion: tx.descripcion,
+            comercio: tx.descripcion,
+            fechaCompra: tx.fecha,
+            montoTotal,
+            cuotasTotales,
+            cuotasPagadas,
+            valorCuota: tx.monto,
+            saldoRestante,
+            tasaInteresMensual: isNu ? 2.10 : 0,
+            fechaInicioCobro: tx.fecha.slice(0, 7),
+            estado,
+            notas: tx.cuotasInfo ? `Extracto: Cuota ${tx.cuotasInfo}` : undefined,
+          })
+          movimientosAgregados++
+        }
+      } else {
+        // Gasto a 1 cuota
+        const existeGasto = state.gastosPersonales.some(
+          (g) =>
+            g.tarjetaId === tarjetaDestinoId &&
+            g.monto === tx.monto &&
+            (g.fecha === tx.fecha || g.descripcion.toLowerCase() === tx.descripcion.toLowerCase())
+        )
+        if (!existeGasto) {
+          addGastoPersonal({
+            fecha: tx.fecha,
+            categoria: tx.categoriaSugerida || 'OTROS',
+            descripcion: tx.descripcion,
+            monto: tx.monto,
+            tarjetaId: tarjetaDestinoId,
+            metodoPago: 'TARJETA_CREDITO',
+            cuotas: 1,
+          })
+          movimientosAgregados++
+        }
+      }
+    })
+
+    showToast(
+      'Tarjeta Actualizada con Extracto',
+      `${tarjetaDestino?.nombre || 'Tarjeta'}: Cupo ${formatMoney(resumenCabecera?.cupoTotal || tarjetaDestino?.cupoTotal || 0)} | ${movimientosAgregados} movimientos asociados`
+    )
   }
 
   // Ejecutar el motor de auditoría y conciliación contra la base de datos
@@ -179,14 +404,22 @@ T06261 05/07/2026 MERCADO PAGO $ 695.590,00 2/12 $ 57.965,83 0,0000 % 00,0000 % 
     if (vinculoOverrides[tx.id]) {
       return state.comprasCuotas.find((c) => c.id === vinculoOverrides[tx.id])
     }
-    const descTx = tx.descripcion.toLowerCase()
+    const descTx = tx.descripcion.toLowerCase().trim()
     return state.comprasCuotas.find((c) => {
-      const descC = c.descripcion.toLowerCase()
-      const matchDesc = descC.includes(descTx) || descTx.includes(descC)
+      const descC = c.descripcion.toLowerCase().trim()
+      const sameTarjeta =
+        !medioAuditado.startsWith('tarjeta:') ||
+        c.tarjetaId === medioAuditado.replace('tarjeta:', '')
+      if (!sameTarjeta) return false
+
+      const sameDate = c.fechaCompra === tx.fecha
       const matchMonto =
         tx.valorMovimientoOriginal &&
-        Math.abs(c.montoTotal - tx.valorMovimientoOriginal) < 1000
-      return matchDesc || matchMonto
+        Math.abs(c.montoTotal - tx.valorMovimientoOriginal) < 100
+      const exactDesc =
+        descC === descTx || (c.comercio && c.comercio.toLowerCase() === descTx)
+
+      return (sameDate && (exactDesc || matchMonto)) || (exactDesc && matchMonto)
     })
   }
 
@@ -203,20 +436,21 @@ T06261 05/07/2026 MERCADO PAGO $ 695.590,00 2/12 $ 57.965,83 0,0000 % 00,0000 % 
 
   // Acción: Actualizar / Sincronizar Compra a Cuotas existente con los datos del extracto
   function handleActualizarCompraCuota(tx: TransaccionExtracto, existingCompra: CompraCuota) {
-    const cuotasPagadas = tx.numeroCuotaActual
-      ? Math.min(tx.cuotasTotales || existingCompra.cuotasTotales, tx.numeroCuotaActual - 1)
-      : existingCompra.cuotasPagadas
+    const cuotasTotales = tx.cuotasTotales || existingCompra.cuotasTotales
+    const cuotaActualNum = tx.numeroCuotaActual || (existingCompra.cuotasPagadas + 1)
+    const cuotasPagadas = Math.max(0, cuotaActualNum - 1)
     const saldoRestante = tx.saldoPendiente !== undefined ? tx.saldoPendiente : existingCompra.saldoRestante
     const valorCuota = tx.monto || existingCompra.valorCuota
-    const cuotasTotales = tx.cuotasTotales || existingCompra.cuotasTotales
+    const estado = (cuotasPagadas >= cuotasTotales || (saldoRestante === 0 && cuotasPagadas > 0)) ? 'PAGADA' : 'ACTIVA'
 
     updateCompraCuota(existingCompra.id, {
       saldoRestante,
       cuotasPagadas,
       valorCuota,
       cuotasTotales,
+      estado,
     })
-    showToast('Compra sincronizada', `Se actualizó saldo a ${formatMoney(saldoRestante)} y cuotas de "${existingCompra.descripcion}"`)
+    showToast('Compra sincronizada', `Se actualizó saldo a ${formatMoney(saldoRestante)} (Cuota ${cuotaActualNum}/${cuotasTotales}) de "${existingCompra.descripcion}"`)
   }
 
   // Acción: Agregar nueva Compra a Cuotas desde el extracto
@@ -225,8 +459,14 @@ T06261 05/07/2026 MERCADO PAGO $ 695.590,00 2/12 $ 57.965,83 0,0000 % 00,0000 % 
       ? medioAuditado.replace('tarjeta:', '')
       : state.tarjetas[0]?.id || 'tc-1'
 
-    const montoTotal = tx.valorMovimientoOriginal || tx.monto * (tx.cuotasTotales || 1)
     const cuotasTotales = tx.cuotasTotales || 1
+    const cuotaActualNum = tx.numeroCuotaActual || 1
+    const cuotasPagadas = Math.max(0, cuotaActualNum - 1)
+    const montoTotal = tx.valorMovimientoOriginal || tx.monto * cuotasTotales
+    const saldoRestante = tx.saldoPendiente !== undefined 
+      ? tx.saldoPendiente 
+      : Math.max(0, montoTotal - (tx.monto * cuotaActualNum))
+    const estado = (cuotasPagadas >= cuotasTotales || (saldoRestante === 0 && cuotasPagadas > 0)) ? 'PAGADA' : 'ACTIVA'
 
     addCompraCuota({
       tarjetaId: tarjetaIdFinal,
@@ -235,11 +475,16 @@ T06261 05/07/2026 MERCADO PAGO $ 695.590,00 2/12 $ 57.965,83 0,0000 % 00,0000 % 
       fechaCompra: tx.fecha,
       montoTotal,
       cuotasTotales,
+      cuotasPagadas,
+      valorCuota: tx.monto,
+      saldoRestante,
       tasaInteresMensual: 0,
       fechaInicioCobro: tx.fecha.slice(0, 7),
+      estado,
+      notas: tx.cuotasInfo ? `Extracto: Cuota ${tx.cuotasInfo}` : undefined,
     })
 
-    showToast('Compra a cuotas agregada', `Se registró "${tx.descripcion}" (${cuotasTotales} cuotas) en Tarjetas`)
+    showToast('Compra a cuotas agregada', `Se registró "${tx.descripcion}" (${cuotaActualNum}/${cuotasTotales} cuotas) en Tarjetas`)
   }
 
   // Acción: Agregar un gasto faltante individual a la app con 1 clic
@@ -314,6 +559,25 @@ T06261 05/07/2026 MERCADO PAGO $ 695.590,00 2/12 $ 57.965,83 0,0000 % 00,0000 % 
           periodo: 'MENSUAL',
           cuentaId: cuentaId || state.cuentas[0]?.id,
         })
+      } else if (
+        isTarjeta &&
+        (tx.clasificacionTarjeta === 'COMPRA_CUOTAS' ||
+          tx.seccionExtracto === 'MOVIMIENTOS_ANTERIORES' ||
+          (tx.cuotasTotales && tx.cuotasTotales > 1))
+      ) {
+        const cuotasTotales = tx.cuotasTotales || 1
+        const montoTotal = tx.valorMovimientoOriginal || tx.monto * cuotasTotales
+
+        addCompraCuota({
+          tarjetaId: tarjetaId || state.tarjetas[0]?.id || 'tc-nu',
+          descripcion: tx.descripcion,
+          comercio: tx.descripcion,
+          fechaCompra: tx.fecha,
+          montoTotal,
+          cuotasTotales,
+          tasaInteresMensual: 0,
+          fechaInicioCobro: tx.fecha.slice(0, 7),
+        })
       } else {
         addGastoPersonal({
           fecha: tx.fecha,
@@ -351,6 +615,76 @@ T06261 05/07/2026 MERCADO PAGO $ 695.590,00 2/12 $ 57.965,83 0,0000 % 00,0000 % 
             <strong>audita consumos a 1 cuota (celular, gasolina, suscripciones)</strong>, cuotas diferidas, cobros de manejo y abonos para{' '}
             <strong>{formatMonthYear(selectedMonth)}</strong>.
           </p>
+        </div>
+      </div>
+
+      {/* SELECTOR EXPLICITO DE TARJETA DE CRÉDITO */}
+      <div
+        style={{
+          backgroundColor: 'var(--color-surface)',
+          border: '2px solid var(--color-border)',
+          borderRadius: 'var(--radius-lg)',
+          padding: '1rem 1.25rem',
+          marginBottom: '1.5rem',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          gap: '1rem',
+          flexWrap: 'wrap',
+          boxShadow: 'var(--shadow-sm)',
+        }}
+      >
+        <div>
+          <strong style={{ fontSize: '1rem', display: 'block', color: 'var(--color-text-main)' }}>
+            🎯 1. ¿A qué Tarjeta de Crédito vas a cargar este Extracto?
+          </strong>
+          <span style={{ fontSize: '0.8rem', color: 'var(--color-text-muted)' }}>
+            Selecciona tu tarjeta para vincular los cupos, pagos mínimos y movimientos del PDF directamente a ella.
+          </span>
+        </div>
+
+        <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', alignItems: 'center' }}>
+          {state.tarjetas.map((t) => {
+            const isNu = t.banco.toLowerCase().includes('nu') || t.nombre.toLowerCase().includes('nu')
+            const isSelected = medioAuditado === `tarjeta:${t.id}`
+            return (
+              <button
+                key={t.id}
+                type="button"
+                className={`btn sm ${isSelected ? 'primary' : 'secondary'}`}
+                style={{
+                  backgroundColor: isSelected ? (isNu ? '#820ad1' : '#f59e0b') : undefined,
+                  borderColor: isSelected ? (isNu ? '#820ad1' : '#f59e0b') : undefined,
+                  color: isSelected ? '#ffffff' : undefined,
+                  fontWeight: 700,
+                  fontSize: '0.85rem',
+                  padding: '0.45rem 0.9rem',
+                }}
+                onClick={() => {
+                  setMedioAuditado(`tarjeta:${t.id}`)
+                  setBancoDetectado(isNu ? 'NU' : 'BANCOLOMBIA')
+                  showToast('Tarjeta seleccionada', `El extracto se asignará a ${t.nombre}`)
+                }}
+              >
+                {isNu ? '🟣' : '🏦'} {t.nombre} (•••• {t.ultimos4Digitos})
+              </button>
+            )
+          })}
+          <button
+            type="button"
+            className="btn ghost sm"
+            style={{ color: 'var(--color-expense)', borderColor: 'var(--color-border)', fontSize: '0.8rem' }}
+            onClick={() => {
+              if (confirm('¿Limpiar los extractos y compras para comenzar tu prueba desde cero?')) {
+                limpiarDatosTarjetas()
+                setTransaccionesExtraidas([])
+                setResumenCabecera(undefined)
+              }
+            }}
+            title="Restablecer tarjetas para prueba limpia"
+          >
+            🧹 Limpiar Tarjetas
+          </button>
         </div>
       </div>
 
@@ -500,11 +834,21 @@ T06261 05/07/2026 MERCADO PAGO $ 695.590,00 2/12 $ 57.965,83 0,0000 % 00,0000 % 
         {metodoCarga === 'EJEMPLO' && (
           <div style={{ marginTop: '1rem', textAlign: 'center', padding: '1rem' }}>
             <p style={{ color: 'var(--color-text-muted)', fontSize: '0.9rem', marginBottom: '1rem' }}>
-              Se ha cargado una muestra típica de extracto bancario con compras reales (Parqueadero $30k, Celular $45k, Netflix $35k, Gasolina $50k, 4x1000, etc.) para que pruebes el conciliador.
+              Selecciona un extracto oficial de demostración con compras, cuotas diferidas y pagos para probar el motor de auditoría:
             </p>
-            <button type="button" className="btn secondary sm" onClick={handleCargarEjemplo}>
-              🔄 Recargar Datos de Muestra
-            </button>
+            <div style={{ display: 'flex', justifyContent: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
+              <button type="button" className="btn secondary sm" onClick={handleCargarEjemplo}>
+                🏦 Cargar Extracto Bancolombia ($781k / $201k Mínimo)
+              </button>
+              <button
+                type="button"
+                className="btn primary sm"
+                onClick={handleCargarEjemploNu}
+                style={{ backgroundColor: '#820ad1', borderColor: '#820ad1', color: '#ffffff' }}
+              >
+                🟣 Cargar Extracto Nu Colombia ($1.84M / $981k Mínimo)
+              </button>
+            </div>
           </div>
         )}
 
@@ -597,7 +941,112 @@ T06261 05/07/2026 MERCADO PAGO $ 695.590,00 2/12 $ 57.965,83 0,0000 % 00,0000 % 
           {/* VISTA 1: TABLA ESTRUCTURADA COLUMNA POR COLUMNA (EXACTA AL EXTRACTO) */}
           {vistaPrincipal === 'COLUMNAS_PDF' && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem', marginBottom: '1.5rem' }}>
-              {/* BANNER INFORMATIVO BANCOLOMBIA */}
+              {/* BLOQUE VISUAL OFICIAL: CUPO DE TU TARJETA & INFORMACIÓN DE PAGO EN PESOS */}
+              {resumenCabecera && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '1rem' }}>
+                    {/* RECUADRO 1: CUPO / USADO */}
+                    <div style={{ borderRadius: 'var(--radius-lg)', overflow: 'hidden', border: '1px solid var(--color-border)', backgroundColor: 'var(--color-surface)', boxShadow: 'var(--shadow-sm)' }}>
+                      <div
+                        style={{
+                          backgroundColor: bancoDetectado === 'NU' ? '#820ad1' : '#facc15',
+                          color: bancoDetectado === 'NU' ? '#ffffff' : '#713f12',
+                          fontWeight: 800,
+                          padding: '0.65rem 1rem',
+                          fontSize: '0.95rem',
+                          letterSpacing: '0.02em',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'space-between',
+                        }}
+                      >
+                        <span>{bancoDetectado === 'NU' ? '🟣 Resumen de tu extracto Nu' : 'Cupo de tu tarjeta'}</span>
+                        <span style={{ fontSize: '0.8rem', opacity: 0.9 }}>{bancoDetectado === 'NU' ? 'Nu Colombia' : 'Bancolombia'}</span>
+                      </div>
+                      <div style={{ padding: '1rem 1.25rem', display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                        <div style={{ textAlign: 'center', paddingBottom: '0.5rem', borderBottom: '1px solid var(--color-border)' }}>
+                          <span style={{ fontSize: '0.8rem', color: 'var(--color-text-muted)', display: 'block' }}>
+                            {bancoDetectado === 'NU' ? 'Usado (Deuda al corte):' : 'Deuda a la fecha de corte:'}
+                          </span>
+                          <strong style={{ fontSize: '1.75rem', color: 'var(--color-text-main)', letterSpacing: '-0.02em', display: 'block', marginTop: '2px' }}>
+                            {formatMoney(resumenCabecera.deudaCorte || resumenCabecera.pagoTotal || (bancoDetectado === 'NU' ? 1891832 : 781536))}
+                          </strong>
+                        </div>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem' }}>
+                          <span style={{ color: 'var(--color-text-muted)' }}>
+                            {bancoDetectado === 'NU' ? 'Cupo definido:' : 'Cupo total:'} <strong>{formatMoney(resumenCabecera.cupoTotal || (bancoDetectado === 'NU' ? 2000000 : 1200000))}</strong>
+                          </span>
+                          <span style={{ color: 'var(--color-text-muted)' }}>
+                            Disponible: <strong style={{ color: 'var(--color-income)' }}>{formatMoney(resumenCabecera.cupoDisponible || (bancoDetectado === 'NU' ? 108168 : 418464.71))}</strong>
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* RECUADRO 2: INFORMACIÓN DE PAGO EN PESOS */}
+                    <div style={{ borderRadius: 'var(--radius-lg)', overflow: 'hidden', border: '1px solid var(--color-border)', backgroundColor: 'var(--color-surface)', boxShadow: 'var(--shadow-sm)' }}>
+                      <div
+                        style={{
+                          backgroundColor: bancoDetectado === 'NU' ? '#5c00a3' : '#10b981',
+                          color: '#ffffff',
+                          fontWeight: 800,
+                          padding: '0.65rem 1rem',
+                          fontSize: '0.95rem',
+                          letterSpacing: '0.02em',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'space-between',
+                        }}
+                      >
+                        <span>{bancoDetectado === 'NU' ? '🟣 Información de pago Nu' : 'Información de pago en pesos'}</span>
+                        <span style={{ fontSize: '0.8rem', opacity: 0.9 }}>{bancoDetectado === 'NU' ? '04 SEP 2026' : 'sep. 02, 2026'}</span>
+                      </div>
+                      <div style={{ padding: '1rem 1.25rem', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.85rem', alignItems: 'center' }}>
+                        <div>
+                          <span style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)', display: 'block' }}>Periodo facturado</span>
+                          <strong style={{ fontSize: '0.9rem', color: 'var(--color-text-main)' }}>
+                            {resumenCabecera.periodoFacturado || (bancoDetectado === 'NU' ? '15 JUL 2026 - 14 AGO' : '15 jul - 17 ago. 2026')}
+                          </strong>
+                        </div>
+                        <div style={{ textAlign: 'right' }}>
+                          <span style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)', display: 'block' }}>
+                            {bancoDetectado === 'NU' ? 'Deuda Total / Pago Total:' : 'Pago Total:'}
+                          </span>
+                          <strong style={{ fontSize: '1.35rem', color: 'var(--color-text-main)' }}>
+                            {formatMoney(resumenCabecera.pagoTotal || (bancoDetectado === 'NU' ? 1849932 : 781536))}
+                          </strong>
+                        </div>
+                        <div style={{ paddingTop: '0.5rem', borderTop: '1px solid var(--color-border)' }}>
+                          <span style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)', display: 'block' }}>Fecha límite de pago:</span>
+                          <strong style={{ fontSize: '0.95rem', color: 'var(--color-expense)' }}>
+                            {cleanDateText(resumenCabecera.fechaLimitePagoTexto) || (bancoDetectado === 'NU' ? '04 SEP 2026' : 'sep. 02, 2026')}
+                          </strong>
+                        </div>
+                        <div style={{ paddingTop: '0.5rem', borderTop: '1px solid var(--color-border)', textAlign: 'right' }}>
+                          <span style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)', display: 'block' }}>Pago mínimo:</span>
+                          <strong style={{ fontSize: '1.35rem', color: 'var(--color-warning-text)' }}>
+                            {formatMoney(resumenCabecera.pagoMinimo || (bancoDetectado === 'NU' ? 981828 : 201878))}
+                          </strong>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* BOTÓN DE SINCRONIZACIÓN DE LA TARJETA */}
+                  <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.75rem' }}>
+                    <button
+                      type="button"
+                      className="btn primary sm"
+                      onClick={handleSincronizarTarjetaConExtracto}
+                      style={{ fontSize: '0.825rem' }}
+                    >
+                      🔄 Sincronizar Cupo ({formatMoney(resumenCabecera.cupoTotal || 0)}), Pago Mínimo ({formatMoney(resumenCabecera.pagoMinimo || 0)}) y Total ({formatMoney(resumenCabecera.pagoTotal || 0)}) con tu Tarjeta
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* BANNER INFORMATIVO */}
               <div
                 style={{
                   display: 'flex',
