@@ -83,6 +83,69 @@ export function HogarPage() {
     return (state.arriendos || []).find((a) => a.mesCorrespondiente === selectedMonth)
   }, [state.arriendos, selectedMonth])
 
+  // Plantilla de arriendo fijo de referencia
+  const plantillaArriendo = useMemo(() => {
+    if (state.arriendos && state.arriendos.length > 0) {
+      const sorted = [...state.arriendos].sort((a, b) => b.mesCorrespondiente.localeCompare(a.mesCorrespondiente))
+      return sorted[0]
+    }
+    return {
+      id: 'arr-template',
+      mesCorrespondiente: selectedMonth,
+      monto: 1350000,
+      fechaLimite: `${selectedMonth}-05`,
+      pagado: false,
+      cuentaId: state.cuentas[0]?.id || 'cuenta-bancolombia',
+      arrendador: 'Inmobiliaria El Hogar / Propietario',
+      notas: 'Gasto fijo mensual de vivienda',
+    }
+  }, [state.arriendos, selectedMonth, state.cuentas])
+
+  const [cuentaPagoArriendoId, setCuentaPagoArriendoId] = useState('')
+
+  useEffect(() => {
+    if (arriendoMes?.cuentaId) {
+      setCuentaPagoArriendoId(arriendoMes.cuentaId)
+    } else if (plantillaArriendo?.cuentaId) {
+      setCuentaPagoArriendoId(plantillaArriendo.cuentaId)
+    } else if (state.cuentas[0]) {
+      setCuentaPagoArriendoId(state.cuentas[0].id)
+    }
+  }, [arriendoMes, plantillaArriendo, state.cuentas])
+
+  function handleEjecutarPagoArriendo() {
+    const targetCuentaId = cuentaPagoArriendoId || state.cuentas[0]?.id
+    if (!targetCuentaId) {
+      showToast('Selecciona una cuenta', 'Elige la cuenta desde la que se pagará el arriendo', 'warning')
+      return
+    }
+
+    const montoCanon = arriendoMes ? arriendoMes.monto : (plantillaArriendo?.monto || 1350000)
+    const fechaLimiteCanon = arriendoMes ? arriendoMes.fechaLimite : `${selectedMonth}-${diaLimiteArr.padStart(2, '0')}`
+
+    if (arriendoMes) {
+      togglePagoArriendo(arriendoMes.id, targetCuentaId)
+    } else {
+      addArriendo({
+        mesCorrespondiente: selectedMonth,
+        monto: montoCanon,
+        fechaLimite: fechaLimiteCanon,
+        pagado: true,
+        fechaPago: new Date().toISOString().slice(0, 10),
+        cuentaId: targetCuentaId,
+        arrendador: plantillaArriendo.arrendador || 'Inmobiliaria El Hogar / Propietario',
+        notas: plantillaArriendo.notas || 'Gasto fijo mensual de vivienda',
+      })
+    }
+  }
+
+  function handleCambiarCuentaPagoDirecto(nuevaCuentaId: string) {
+    setCuentaPagoArriendoId(nuevaCuentaId)
+    if (arriendoMes) {
+      updateArriendo(arriendoMes.id, { cuentaId: nuevaCuentaId })
+    }
+  }
+
   // Cambio dinámico de mes en el formulario de arriendo para sincronizar la fecha límite
   function handleMesArrChange(newMonth: string) {
     setMesArr(newMonth)
@@ -566,169 +629,303 @@ export function HogarPage() {
         </div>
       )}
 
-      {/* TAB 2: ARRIENDO */}
+      {/* TAB 2: ARRIENDO (GASTO FIJO PROGRAMADO) */}
       {activeTab === 'ARRIENDO' && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
-          {arriendoMes ? (
-            <div className="panel" style={{ borderLeft: `5px solid ${arriendoMes.pagado ? 'var(--color-income)' : 'var(--color-expense)'}` }}>
-              <div className="panel-header">
-                <div>
-                  <h2 className="panel-title">
-                    🏠 Arriendo de {formatMonthYear(arriendoMes.mesCorrespondiente)}
-                  </h2>
-                  <p style={{ fontSize: '0.85rem', color: 'var(--color-text-muted)' }}>
-                    {arriendoMes.arrendador ? `Arrendador / Contacto: ${arriendoMes.arrendador}` : 'Vivienda Principal'}
-                  </p>
-                </div>
-                <span className={`badge ${arriendoMes.pagado ? 'income' : 'expense'}`} style={{ fontSize: '0.9rem', padding: '0.4rem 0.8rem' }}>
-                  {arriendoMes.pagado ? '✓ Arriendo Pagado' : '⏳ Pendiente de Pago'}
-                </span>
-              </div>
+          {/* Card Principal de Arriendo del Mes */}
+          {(() => {
+            const isPagado = Boolean(arriendoMes?.pagado)
+            const montoCanon = arriendoMes ? arriendoMes.monto : (plantillaArriendo?.monto || 1350000)
+            const fechaLimiteCanon = arriendoMes ? arriendoMes.fechaLimite : `${selectedMonth}-${diaLimiteArr.padStart(2, '0')}`
+            const cuentaActiva = state.cuentas.find((c) => c.id === cuentaPagoArriendoId) || state.cuentas[0]
+            const arrendadorContacto = arriendoMes?.arrendador || plantillaArriendo?.arrendador || 'Inmobiliaria El Hogar / Propietario'
 
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem', padding: '0.75rem 0' }}>
-                <div>
-                  <span style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)', textTransform: 'uppercase', fontWeight: 600 }}>Valor Mensual</span>
-                  <div style={{ fontFamily: 'var(--font-display)', fontSize: '1.8rem', fontWeight: 700, color: 'var(--color-text-main)' }}>
-                    {formatMoney(arriendoMes.monto)}
-                  </div>
-                </div>
-                <div>
-                  <span style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)', textTransform: 'uppercase', fontWeight: 600 }}>Fecha Límite de Pago</span>
-                  <div style={{ fontSize: '1.1rem', fontWeight: 600, color: 'var(--color-text-main)', marginTop: '0.3rem' }}>
-                    {formatDate(arriendoMes.fechaLimite)}
-                  </div>
-                  {!arriendoMes.pagado && (
-                    <span style={{ fontSize: '0.8rem', color: getDaysRemaining(arriendoMes.fechaLimite).isExpired ? 'var(--color-expense)' : 'var(--color-warning-text)', fontWeight: 600 }}>
-                      {getDaysRemaining(arriendoMes.fechaLimite).label}
-                    </span>
-                  )}
-                </div>
-                {arriendoMes.fechaPago && (
+            return (
+              <div
+                className="panel"
+                style={{
+                  borderLeft: `5px solid ${isPagado ? 'var(--color-income)' : 'var(--color-warning)'}`,
+                  background: isPagado
+                    ? 'radial-gradient(circle at top right, rgba(16, 185, 129, 0.08), transparent 70%), var(--color-surface)'
+                    : 'radial-gradient(circle at top right, rgba(245, 158, 11, 0.08), transparent 70%), var(--color-surface)',
+                }}
+              >
+                <div className="panel-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '0.75rem' }}>
                   <div>
-                    <span style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)', textTransform: 'uppercase', fontWeight: 600 }}>Fecha Efectiva de Pago</span>
-                    <div style={{ fontSize: '1.1rem', fontWeight: 600, color: 'var(--color-income-text)', marginTop: '0.3rem' }}>
-                      {formatDate(arriendoMes.fechaPago)}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.25rem' }}>
+                      <span style={{ fontSize: '1.3rem' }}>🏠</span>
+                      <h2 className="panel-title" style={{ fontSize: '1.25rem' }}>
+                        Arriendo de {formatMonthYear(selectedMonth)}
+                      </h2>
                     </div>
+                    <p style={{ fontSize: '0.85rem', color: 'var(--color-text-muted)' }}>
+                      Gasto fijo programado • {arrendadorContacto}
+                    </p>
+                  </div>
+
+                  <span
+                    className={`badge ${isPagado ? 'income' : 'warning'}`}
+                    style={{ fontSize: '0.85rem', padding: '0.35rem 0.75rem', fontWeight: 700 }}
+                  >
+                    {isPagado ? '✓ Arriendo Pagado' : '⏳ Pendiente de Pago'}
+                  </span>
+                </div>
+
+                <div
+                  style={{
+                    display: 'grid',
+                    gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))',
+                    gap: '1.5rem',
+                    padding: '1.25rem 0',
+                    borderTop: '1px solid var(--color-border)',
+                    borderBottom: '1px solid var(--color-border)',
+                    margin: '1rem 0',
+                  }}
+                >
+                  {/* Columna 1: Valor y Vencimiento */}
+                  <div>
+                    <span style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)', textTransform: 'uppercase', fontWeight: 700, letterSpacing: '0.04em' }}>
+                      Canon Mensual Fijo
+                    </span>
+                    <div
+                      style={{
+                        fontFamily: 'var(--font-mono)',
+                        fontSize: '2rem',
+                        fontWeight: 800,
+                        color: 'var(--color-text-main)',
+                        lineHeight: 1.1,
+                        margin: '0.3rem 0',
+                      }}
+                    >
+                      {formatMoney(montoCanon)}
+                    </div>
+                    <div style={{ fontSize: '0.85rem', color: 'var(--color-text-muted)' }}>
+                      Vence el <strong>{formatDate(fechaLimiteCanon)}</strong>
+                      {!isPagado && (
+                        <span
+                          style={{
+                            display: 'block',
+                            fontSize: '0.8rem',
+                            color: getDaysRemaining(fechaLimiteCanon).isExpired ? 'var(--color-expense)' : 'var(--color-warning-text)',
+                            fontWeight: 600,
+                            marginTop: '2px',
+                          }}
+                        >
+                          {getDaysRemaining(fechaLimiteCanon).label}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Columna 2: Selector de Cuenta de Pago */}
+                  <div>
+                    <label style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)', textTransform: 'uppercase', fontWeight: 700, letterSpacing: '0.04em', display: 'block', marginBottom: '0.4rem' }}>
+                      💳 ¿De dónde se paga el arriendo?
+                    </label>
+                    <select
+                      className="form-select"
+                      value={cuentaPagoArriendoId}
+                      onChange={(e) => handleCambiarCuentaPagoDirecto(e.target.value)}
+                      style={{
+                        width: '100%',
+                        fontSize: '0.9rem',
+                        fontWeight: 600,
+                        padding: '0.55rem 0.75rem',
+                        borderRadius: 'var(--radius-md)',
+                        borderColor: isPagado ? 'rgba(16, 185, 129, 0.4)' : 'var(--color-border-strong)',
+                      }}
+                    >
+                      {state.cuentas.map((c) => (
+                        <option key={c.id} value={c.id}>
+                          {c.nombre} • Saldo: {formatMoney(c.saldo)}
+                        </option>
+                      ))}
+                    </select>
+
+                    {cuentaActiva && (
+                      <span style={{ display: 'block', fontSize: '0.75rem', color: 'var(--color-text-muted)', marginTop: '0.4rem' }}>
+                        {isPagado ? (
+                          <span style={{ color: 'var(--color-income)' }}>
+                            ✓ Descontado del saldo de {cuentaActiva.nombre}
+                          </span>
+                        ) : (
+                          <span>
+                            Saldo posterior al pago:{' '}
+                            <strong style={{ color: cuentaActiva.saldo >= montoCanon ? 'var(--color-income)' : 'var(--color-expense)' }}>
+                              {formatMoney(cuentaActiva.saldo - montoCanon)}
+                            </strong>
+                          </span>
+                        )}
+                      </span>
+                    )}
+                  </div>
+
+                  {/* Columna 3: Acción de Pago Rápido */}
+                  <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: '0.5rem' }}>
+                    {isPagado ? (
+                      <div
+                        style={{
+                          padding: '0.85rem',
+                          backgroundColor: 'rgba(16, 185, 129, 0.1)',
+                          border: '1px solid rgba(16, 185, 129, 0.3)',
+                          borderRadius: 'var(--radius-md)',
+                        }}
+                      >
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: '#059669', fontWeight: 700, fontSize: '0.9rem' }}>
+                          <span>✓</span>
+                          <span>Pagado el {formatDate(arriendoMes?.fechaPago || new Date().toISOString().slice(0, 10))}</span>
+                        </div>
+                        <span style={{ fontSize: '0.78rem', color: 'var(--color-text-muted)', display: 'block', marginTop: '2px' }}>
+                          Medio de pago: <strong>{cuentaActiva?.nombre || 'Cuenta'}</strong>
+                        </span>
+                      </div>
+                    ) : (
+                      <button
+                        type="button"
+                        className="btn success"
+                        onClick={handleEjecutarPagoArriendo}
+                        style={{
+                          fontSize: '0.95rem',
+                          fontWeight: 700,
+                          padding: '0.75rem 1.25rem',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          gap: '0.5rem',
+                          boxShadow: '0 4px 12px rgba(16, 185, 129, 0.3)',
+                        }}
+                      >
+                        <span>✓</span>
+                        <span>Pagar {formatMoney(montoCanon)} con {cuentaActiva?.nombre || 'Cuenta'}</span>
+                      </button>
+                    )}
+
+                    <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end', marginTop: '0.25rem' }}>
+                      {isPagado && (
+                        <button
+                          type="button"
+                          className="btn secondary sm"
+                          onClick={() => {
+                            if (arriendoMes) togglePagoArriendo(arriendoMes.id, cuentaPagoArriendoId)
+                          }}
+                          title="Devuelve el saldo a la cuenta y marca como pendiente"
+                        >
+                          Revertir Pago
+                        </button>
+                      )}
+                      <button
+                        type="button"
+                        className="btn ghost sm"
+                        onClick={() => {
+                          if (arriendoMes) {
+                            openEditArriendoModal(arriendoMes)
+                          } else {
+                            openNewArriendoModal()
+                          }
+                        }}
+                      >
+                        ⚙️ Ajustar Canon
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
+                {(arriendoMes?.notas || plantillaArriendo?.notas) && (
+                  <div style={{ fontSize: '0.8rem', color: 'var(--color-text-muted)', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                    <span>📝</span>
+                    <span>{arriendoMes?.notas || plantillaArriendo?.notas}</span>
                   </div>
                 )}
               </div>
+            )
+          })()}
 
-              {arriendoMes.notas && (
-                <div className="banner info">
-                  <span>📝 <strong>Notas:</strong> {arriendoMes.notas}</span>
-                </div>
-              )}
-
-              <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'flex-end', borderTop: '1px solid var(--color-border)', paddingTop: '1rem', flexWrap: 'wrap' }}>
-                <button
-                  type="button"
-                  className={`btn ${arriendoMes.pagado ? 'secondary' : 'success'}`}
-                  onClick={() => togglePagoArriendo(arriendoMes.id)}
-                >
-                  {arriendoMes.pagado ? 'Desmarcar Pago' : '✓ Marcar como Pagado Ahora'}
-                </button>
-
-                <button
-                  type="button"
-                  className="btn secondary"
-                  onClick={() => openEditArriendoModal(arriendoMes)}
-                >
-                  ✏️ Editar Arriendo
-                </button>
-
-                <button
-                  type="button"
-                  className="btn danger sm"
-                  onClick={() => {
-                    if (confirm('¿Deseas eliminar el registro de arriendo de este mes?')) {
-                      deleteArriendo(arriendoMes.id)
-                    }
-                  }}
-                >
-                  Eliminar
-                </button>
-              </div>
-            </div>
-          ) : (
-            <div className="panel" style={{ textAlign: 'center', padding: '3rem 1rem' }}>
-              <p style={{ color: 'var(--color-text-muted)' }}>
-                No has registrado el valor del arriendo para {formatMonthYear(selectedMonth)}.
-              </p>
-              <button
-                type="button"
-                className="btn primary sm"
-                style={{ marginTop: '1rem' }}
-                onClick={openNewArriendoModal}
-              >
-                + Registrar Arriendo de {formatMonthYear(selectedMonth)}
-              </button>
-            </div>
-          )}
-
-          {/* Histórico de Arriendos con botón para editar cualquier mes */}
+          {/* Histórico de Arriendos */}
           <div className="panel">
-            <div className="panel-header">
-              <h3 className="panel-title" style={{ fontSize: '1rem' }}>
-                Historial de Pagos de Arriendo
-              </h3>
+            <div className="panel-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.5rem' }}>
+              <div>
+                <h3 className="panel-title" style={{ fontSize: '1.05rem' }}>
+                  Historial de Pagos de Arriendo
+                </h3>
+                <span style={{ fontSize: '0.8rem', color: 'var(--color-text-muted)' }}>
+                  Registro mensual de pagos de vivienda y cuentas utilizadas.
+                </span>
+              </div>
               <button type="button" className="btn secondary sm" onClick={openNewArriendoModal}>
-                + Agregar Otro Mes
+                + Agregar / Registrar Otro Mes
               </button>
             </div>
 
             <div className="table-container">
-              <table>
+              <table className="table-wide">
                 <thead>
                   <tr>
                     <th>Mes</th>
-                    <th>Valor</th>
+                    <th>Canon</th>
                     <th>Fecha Límite</th>
+                    <th>Cuenta de Pago</th>
                     <th>Estado</th>
                     <th>Fecha de Pago</th>
                     <th style={{ textAlign: 'right' }}>Acciones</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {(state.arriendos || []).map((a) => (
-                    <tr key={a.id}>
-                      <td><strong>{formatMonthYear(a.mesCorrespondiente)}</strong></td>
-                      <td>{formatMoney(a.monto)}</td>
-                      <td>{formatDate(a.fechaLimite)}</td>
-                      <td>
-                        <span className={`badge ${a.pagado ? 'income' : 'expense'}`}>
-                          {a.pagado ? 'Pagado' : 'Pendiente'}
-                        </span>
-                      </td>
-                      <td>{a.fechaPago ? formatDate(a.fechaPago) : '—'}</td>
-                      <td style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
-                        <button
-                          type="button"
-                          className="btn secondary sm"
-                          style={{ marginRight: '0.4rem', padding: '0.25rem 0.5rem', fontSize: '0.75rem' }}
-                          onClick={() => openEditArriendoModal(a)}
-                          title="Editar este arriendo"
-                        >
-                          ✏️ Editar
-                        </button>
-                        <button
-                          type="button"
-                          className="btn ghost sm"
-                          style={{ color: '#e11d48', padding: '0.25rem 0.45rem' }}
-                          onClick={() => {
-                            if (confirm(`¿Eliminar arriendo de ${formatMonthYear(a.mesCorrespondiente)}?`)) {
-                              deleteArriendo(a.id)
-                            }
-                          }}
-                          title="Eliminar"
-                        >
-                          ✕
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
+                  {(state.arriendos || []).map((a) => {
+                    const cuentaUsada = state.cuentas.find((c) => c.id === a.cuentaId)
+
+                    return (
+                      <tr key={a.id}>
+                        <td><strong>{formatMonthYear(a.mesCorrespondiente)}</strong></td>
+                        <td style={{ fontFamily: 'var(--font-mono)', fontWeight: 700 }}>{formatMoney(a.monto)}</td>
+                        <td style={{ fontSize: '0.825rem', color: 'var(--color-text-muted)' }}>{formatDate(a.fechaLimite)}</td>
+                        <td>
+                          {cuentaUsada ? (
+                            <span className="badge neutral" style={{ fontSize: '0.75rem', fontWeight: 600 }}>
+                              {cuentaUsada.nombre}
+                            </span>
+                          ) : (
+                            <span style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)' }}>—</span>
+                          )}
+                        </td>
+                        <td>
+                          <span className={`badge ${a.pagado ? 'income' : 'expense'}`} style={{ fontSize: '0.75rem' }}>
+                            {a.pagado ? '✓ Pagado' : '⏳ Pendiente'}
+                          </span>
+                        </td>
+                        <td style={{ fontSize: '0.825rem', color: a.fechaPago ? 'var(--color-income)' : 'var(--color-text-muted)' }}>
+                          {a.fechaPago ? formatDate(a.fechaPago) : '—'}
+                        </td>
+                        <td style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
+                          <button
+                            type="button"
+                            className="btn secondary sm"
+                            style={{ marginRight: '0.4rem', padding: '0.25rem 0.5rem', fontSize: '0.75rem' }}
+                            onClick={() => openEditArriendoModal(a)}
+                            title="Editar este arriendo"
+                          >
+                            ✏️ Editar
+                          </button>
+                          <button
+                            type="button"
+                            className="btn ghost sm icon-only"
+                            style={{ color: 'var(--color-expense)' }}
+                            onClick={() => {
+                              if (confirm(`¿Eliminar arriendo de ${formatMonthYear(a.mesCorrespondiente)}?`)) {
+                                deleteArriendo(a.id)
+                              }
+                            }}
+                            title="Eliminar"
+                            aria-label="Eliminar"
+                          >
+                            ✕
+                          </button>
+                        </td>
+                      </tr>
+                    )
+                  })}
                   {(state.arriendos || []).length === 0 && (
                     <tr>
-                      <td colSpan={6} style={{ textAlign: 'center', padding: '2rem', color: 'var(--color-text-muted)' }}>
+                      <td colSpan={7} style={{ textAlign: 'center', padding: '2.5rem', color: 'var(--color-text-muted)' }}>
                         No hay registros de arriendo guardados.
                       </td>
                     </tr>

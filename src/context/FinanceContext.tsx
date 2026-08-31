@@ -72,7 +72,7 @@ export interface FinanceContextType {
 
   addArriendo: (arriendo: Omit<ArriendoVivienda, 'id'>) => void
   updateArriendo: (id: string, updates: Partial<ArriendoVivienda>) => void
-  togglePagoArriendo: (id: string) => void
+  togglePagoArriendo: (id: string, cuentaId?: string) => void
   deleteArriendo: (id: string) => void
 
   addServicio: (servicio: Omit<ServicioPublico, 'id'>) => void
@@ -510,10 +510,24 @@ export function FinanceProvider({ children }: { children: ReactNode }) {
 
   const updateArriendo = useCallback(
     (id: string, data: Partial<ArriendoVivienda>) => {
-      updateAndSaveState((prev) => ({
-        ...prev,
-        arriendos: (prev.arriendos || []).map((a) => (a.id === id ? { ...a, ...data } : a)),
-      }))
+      updateAndSaveState((prev) => {
+        const existing = (prev.arriendos || []).find((a) => a.id === id)
+        let nextCuentas = prev.cuentas || []
+
+        if (existing && existing.pagado && data.cuentaId && data.cuentaId !== existing.cuentaId) {
+          nextCuentas = nextCuentas.map((c) => {
+            if (c.id === existing.cuentaId) return { ...c, saldo: c.saldo + existing.monto }
+            if (c.id === data.cuentaId) return { ...c, saldo: c.saldo - (data.monto ?? existing.monto) }
+            return c
+          })
+        }
+
+        return {
+          ...prev,
+          cuentas: nextCuentas,
+          arriendos: (prev.arriendos || []).map((a) => (a.id === id ? { ...a, ...data } : a)),
+        }
+      })
       showToast('Arriendo actualizado', 'Los cambios se guardaron correctamente')
     },
     [updateAndSaveState, showToast]
