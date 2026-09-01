@@ -68,6 +68,8 @@ export function TarjetasPage() {
     addCompraCuota,
     updateCompraCuota,
     pagarCuotaCompra,
+    revertirPagoCuotaCompra,
+    pagarTarjeta,
     prepagarCompra,
     deleteCompraCuota,
     limpiarDatosTarjetas,
@@ -78,6 +80,8 @@ export function TarjetasPage() {
   const [modalCompraOpen, setModalCompraOpen] = useState(false)
   const [modalAmortizacion, setModalAmortizacion] = useState<CompraCuota | null>(null)
   const [modalPagarCuota, setModalPagarCuota] = useState<CompraCuota | null>(null)
+  const [modalRevertirCuota, setModalRevertirCuota] = useState<CompraCuota | null>(null)
+  const [cuentaReembolsoId, setCuentaReembolsoId] = useState(state.cuentas[0]?.id || '')
   const [modalPagarTarjeta, setModalPagarTarjeta] = useState<{
     tarjeta: TarjetaCredito
     pagoMinimo: number
@@ -96,6 +100,8 @@ export function TarjetasPage() {
   const [editComercio, setEditComercio] = useState('')
   const [editNotas, setEditNotas] = useState('')
   const [editValorCuota, setEditValorCuota] = useState('')
+  const [editCuotasPagadas, setEditCuotasPagadas] = useState('0')
+  const [editSaldoRestante, setEditSaldoRestante] = useState('0')
 
   const handleOpenEditCompra = (compra: CompraCuota) => {
     setCompraAEditar(compra)
@@ -103,6 +109,8 @@ export function TarjetasPage() {
     setEditComercio(compra.comercio || '')
     setEditNotas(compra.notas || '')
     setEditValorCuota(String(compra.valorCuota))
+    setEditCuotasPagadas(String(compra.cuotasPagadas ?? 0))
+    setEditSaldoRestante(String(compra.saldoRestante ?? 0))
   }
 
   const handleGuardarEdicionCompra = (e: FormEvent) => {
@@ -119,8 +127,26 @@ export function TarjetasPage() {
       updates.valorCuota = Number(editValorCuota)
     }
 
+    if (editCuotasPagadas !== '' && !isNaN(Number(editCuotasPagadas))) {
+      const cp = Math.max(0, Math.min(compraAEditar.cuotasTotales, Number(editCuotasPagadas)))
+      updates.cuotasPagadas = cp
+      if (cp >= compraAEditar.cuotasTotales) {
+        updates.estado = 'PAGADA'
+      } else if (compraAEditar.estado === 'PAGADA') {
+        updates.estado = 'ACTIVA'
+      }
+    }
+
+    if (editSaldoRestante !== '' && !isNaN(Number(editSaldoRestante))) {
+      const sr = Math.max(0, Number(editSaldoRestante))
+      updates.saldoRestante = sr
+      if (sr === 0 && (updates.cuotasPagadas ?? compraAEditar.cuotasPagadas) > 0) {
+        updates.estado = 'PAGADA'
+      }
+    }
+
     updateCompraCuota(compraAEditar.id, updates)
-    showToast('Compra actualizada', `Se actualizó a "${editDescripcion.trim()}"`)
+    showToast('Compra actualizada', `Se guardaron los ajustes de "${editDescripcion.trim()}"`)
     setCompraAEditar(null)
   }
 
@@ -307,15 +333,6 @@ export function TarjetasPage() {
     if (!modalPagarTarjeta) return
 
     const tarjeta = modalPagarTarjeta.tarjeta
-    const comprasActivas = state.comprasCuotas.filter(
-      (c) => c.tarjetaId === tarjeta.id && c.estado === 'ACTIVA' && c.cuotasPagadas < c.cuotasTotales
-    )
-
-    // Pagar las cuotas de las compras diferidas activas de esta tarjeta
-    comprasActivas.forEach((c) => {
-      pagarCuotaCompra(c.id, cuentaPagoId)
-    })
-
     const valorPagado =
       tipoPagoSeleccionado === 'TOTAL'
         ? modalPagarTarjeta.pagoTotal
@@ -323,10 +340,14 @@ export function TarjetasPage() {
         ? modalPagarTarjeta.pagoMinimo
         : Number(montoPersonalizado) || modalPagarTarjeta.pagoMinimo
 
-    showToast(
-      'Pago de Tarjeta Registrado',
-      `Se debitaron ${formatMoney(valorPagado)} para ${tarjeta.nombre}`
-    )
+    pagarTarjeta({
+      tarjetaId: tarjeta.id,
+      cuentaId: cuentaPagoId,
+      tipoPago: tipoPagoSeleccionado,
+      montoAPagar: valorPagado,
+      mes: selectedMonth,
+    })
+
     setModalPagarTarjeta(null)
   }
 
@@ -978,7 +999,7 @@ export function TarjetasPage() {
                                 type="button"
                                 className="btn secondary sm"
                                 onClick={() => handleOpenEditCompra(compra)}
-                                title="Editar nombre y detalles de esta compra a cuotas"
+                                title="Editar nombre, cuotas pagadas y detalles de esta compra"
                               >
                                 ✏️ Editar
                               </button>
@@ -996,9 +1017,9 @@ export function TarjetasPage() {
                                     type="button"
                                     className="btn success sm"
                                     onClick={() => setModalPagarCuota(compra)}
-                                    title="Pagar cuota mensual"
+                                    title="Pagar cuota mensual individual"
                                   >
-                                    ✓ Pagar
+                                    ✓ Pagar Cuota
                                   </button>
                                   <button
                                     type="button"
@@ -1013,6 +1034,21 @@ export function TarjetasPage() {
                                     Liquidar
                                   </button>
                                 </>
+                              )}
+                              {(compra.cuotasPagadas > 0 || (compra.historialPagos && compra.historialPagos.length > 0)) && (
+                                <button
+                                  type="button"
+                                  className="btn warning sm"
+                                  onClick={() => {
+                                    setModalRevertirCuota(compra)
+                                    const lastAccount = compra.historialPagos?.[compra.historialPagos.length - 1]?.cuentaId
+                                    setCuentaReembolsoId(lastAccount || state.cuentas[0]?.id || '')
+                                  }}
+                                  title="Revertir el último pago de cuota y reembolsar a la cuenta de ahorros"
+                                  style={{ color: 'var(--color-warning-text)' }}
+                                >
+                                  ⏪ Revertir
+                                </button>
                               )}
                               <button
                                 type="button"
@@ -1817,6 +1853,59 @@ export function TarjetasPage() {
         </Modal>
       )}
 
+      {/* MODAL REVERTIR PAGO DE CUOTA */}
+      {modalRevertirCuota && (
+        <Modal
+          isOpen={Boolean(modalRevertirCuota)}
+          onClose={() => setModalRevertirCuota(null)}
+          title="⏪ Revertir Pago de Cuota de Compra"
+          maxWidth="500px"
+        >
+          <form
+            onSubmit={(e) => {
+              e.preventDefault()
+              revertirPagoCuotaCompra(modalRevertirCuota.id, cuentaReembolsoId)
+              setModalRevertirCuota(null)
+            }}
+            style={{ display: 'flex', flexDirection: 'column', gap: '1.15rem' }}
+          >
+            <div>
+              <strong style={{ fontSize: '1.05rem', color: 'var(--color-warning-text)' }}>
+                {modalRevertirCuota.descripcion}
+              </strong>
+              <p style={{ fontSize: '0.85rem', color: 'var(--color-text-muted)', marginTop: '0.35rem', lineHeight: '1.4' }}>
+                Se revertirá el último pago de cuota (cuota actual: <strong>{modalRevertirCuota.cuotasPagadas} de {modalRevertirCuota.cuotasTotales}</strong>).
+                El monto correspondiente (<strong>{formatMoney(modalRevertirCuota.valorCuota)}</strong>) será devuelto a tu cuenta de ahorros seleccionada.
+              </p>
+            </div>
+
+            <div className="form-group">
+              <label>Cuenta donde se devolverá el dinero reembolsado:</label>
+              <select
+                className="form-select"
+                value={cuentaReembolsoId}
+                onChange={(e) => setCuentaReembolsoId(e.target.value)}
+              >
+                {state.cuentas.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.nombre} (Saldo actual: {formatMoney(c.saldo)})
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.75rem', marginTop: '0.5rem' }}>
+              <button type="button" className="btn secondary" onClick={() => setModalRevertirCuota(null)}>
+                Cancelar
+              </button>
+              <button type="submit" className="btn warning">
+                ⏪ Confirmar Reversión y Reembolso
+              </button>
+            </div>
+          </form>
+        </Modal>
+      )}
+
       {/* MODAL TABLA DE AMORTIZACIÓN */}
       {modalAmortizacion && (
         <Modal isOpen={Boolean(modalAmortizacion)} onClose={() => setModalAmortizacion(null)} title={`📊 Tabla de Amortización: ${modalAmortizacion.descripcion}`} maxWidth="680px">
@@ -1930,6 +2019,39 @@ export function TarjetasPage() {
                   disabled
                   style={{ opacity: 0.7 }}
                 />
+              </div>
+            </div>
+
+            <div className="form-grid">
+              <div className="form-group">
+                <label>Cuotas Pagadas a la Fecha (0 a {compraAEditar.cuotasTotales})</label>
+                <input
+                  type="number"
+                  className="form-input"
+                  value={editCuotasPagadas}
+                  onChange={(e) => setEditCuotasPagadas(e.target.value)}
+                  min="0"
+                  max={compraAEditar.cuotasTotales}
+                  required
+                />
+                <span style={{ fontSize: '0.7rem', color: 'var(--color-text-muted)' }}>
+                  Puedes ajustar manualmente si pagaste cuotas de más o de menos.
+                </span>
+              </div>
+              <div className="form-group">
+                <label>Saldo Pendiente Restante ($ COP)</label>
+                <input
+                  type="number"
+                  className="form-input"
+                  value={editSaldoRestante}
+                  onChange={(e) => setEditSaldoRestante(e.target.value)}
+                  min="0"
+                  step="any"
+                  required
+                />
+                <span style={{ fontSize: '0.7rem', color: 'var(--color-text-muted)' }}>
+                  Saldo de capital que aún debes de esta compra.
+                </span>
               </div>
             </div>
 

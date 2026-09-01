@@ -16,6 +16,7 @@ import type {
   GastoPersonal,
   GastoRecurrenteFijo,
   IngresoPersonal,
+  PagoCuotaDetalle,
   PresupuestoCategoria,
   ServicioPublico,
   TarjetaCredito,
@@ -120,6 +121,14 @@ export interface FinanceContextType {
   }) => void
   updateCompraCuota: (id: string, updates: Partial<CompraCuota>) => void
   pagarCuotaCompra: (compraId: string, cuentaId?: string) => void
+  revertirPagoCuotaCompra: (compraId: string, cuentaId?: string) => void
+  pagarTarjeta: (params: {
+    tarjetaId: string
+    cuentaId: string
+    tipoPago: 'TOTAL' | 'MINIMO' | 'PERSONALIZADO'
+    montoAPagar: number
+    mes?: string
+  }) => void
   prepagarCompra: (compraId: string, cuentaId?: string) => void
   deleteCompraCuota: (id: string) => void
 
@@ -175,7 +184,76 @@ function sanitizeAndDeduplicateState(stateObj: FullFinanceState): FullFinanceSta
     return list
   }
 
-  return {
+  // Reversión única automática de los 2 pagos accidentales de cuotas del reloj
+  const sanitizeRelojFix = (state: FullFinanceState): FullFinanceState => {
+    const rawAny = state as unknown as Record<string, unknown>
+    if (rawAny._relojPaymentsRevertedV1) {
+      return state
+    }
+
+    const compras = state.comprasCuotas || []
+    const relojIndex = compras.findIndex((c) =>
+      c.descripcion.toLowerCase().includes('reloj') &&
+      (c.cuotasPagadas > 0 || (c.historialPagos && c.historialPagos.length > 0))
+    )
+
+    if (relojIndex === -1) {
+      return {
+        ...state,
+        _relojPaymentsRevertedV1: true,
+      } as FullFinanceState
+    }
+
+    const reloj = compras[relojIndex]
+    const cuotasARevertir = Math.min(2, reloj.cuotasPagadas > 0 ? reloj.cuotasPagadas : 2)
+    if (cuotasARevertir <= 0) {
+      return { ...state, _relojPaymentsRevertedV1: true } as FullFinanceState
+    }
+
+    let totalReembolso = 0
+    let totalAbonoCapital = 0
+    let targetCuentaId = 'cuenta-bancolombia'
+    const newHistorial = [...(reloj.historialPagos || [])]
+
+    for (let k = 0; k < cuotasARevertir; k++) {
+      if (newHistorial.length > 0) {
+        const lastPago = newHistorial.pop()!
+        totalReembolso += lastPago.montoPagado || reloj.valorCuota
+        totalAbonoCapital += lastPago.abonoCapital || reloj.valorCuota
+        if (lastPago.cuentaId) targetCuentaId = lastPago.cuentaId
+      } else {
+        totalReembolso += reloj.valorCuota
+        totalAbonoCapital += reloj.valorCuota
+      }
+    }
+
+    const targetCuenta =
+      (state.cuentas || []).find((c) => c.id === targetCuentaId) || (state.cuentas || [])[0]
+    const nextCuentas = (state.cuentas || []).map((c) =>
+      c.id === (targetCuenta?.id || targetCuentaId) ? { ...c, saldo: c.saldo + totalReembolso } : c
+    )
+
+    const nuevaCuotasPagadas = Math.max(0, reloj.cuotasPagadas - cuotasARevertir)
+    const nuevoSaldo = Math.min(reloj.montoTotal, reloj.saldoRestante + totalAbonoCapital)
+
+    const nextCompras = [...compras]
+    nextCompras[relojIndex] = {
+      ...reloj,
+      cuotasPagadas: nuevaCuotasPagadas,
+      saldoRestante: nuevoSaldo,
+      estado: 'ACTIVA',
+      historialPagos: newHistorial,
+    }
+
+    return {
+      ...state,
+      cuentas: nextCuentas,
+      comprasCuotas: nextCompras,
+      _relojPaymentsRevertedV1: true,
+    } as FullFinanceState
+  }
+
+  const baseSanitized: FullFinanceState = {
     ...stateObj,
     cuentas: fixUniqueIds(ensureDefaultCuentas(stateObj.cuentas), 'cuenta'),
     tarjetas: fixUniqueIds(stateObj.tarjetas, 'tc'),
@@ -189,6 +267,8 @@ function sanitizeAndDeduplicateState(stateObj: FullFinanceState): FullFinanceSta
     gastosRecurrentes: fixUniqueIds(stateObj.gastosRecurrentes, 'rec'),
     transferencias: fixUniqueIds(stateObj.transferencias, 'transf'),
   }
+
+  return sanitizeRelojFix(baseSanitized)
 }
 
 export function FinanceProvider({ children }: { children: ReactNode }) {
@@ -1160,6 +1240,207 @@ export function FinanceProvider({ children }: { children: ReactNode }) {
     [updateAndSaveState, showToast]
   )
 
+  const revertirPagoCuotaCompra = useCallback(
+    (compraId: string, cuentaId?: string) => {
+      let refundMonto = 0
+      let cuotaRestablecida = 0
+
+      updateAndSaveState((prev) => {
+        const compra = (prev.comprasCuotas || []).find((c) => c.id === compraId)
+        if (
+          !compra ||
+          (compra.cuotasPagadas <= 0 && (!compra.historialPagos || compra.historialPagos.length === 0))
+        ) {
+          return prev
+        }
+
+        let montoReembolso = compra.valorCuota
+        let abonoCapital = compra.valorCuota
+        let targetCuentaId = cuentaId
+        const nextHistorial = [...(compra.historialPagos || [])]
+
+        if (nextHistorial.length > 0) {
+          const ultimoPago = nextHistorial.pop()!
+          montoReembolso = ultimoPago.montoPagado || compra.valorCuota
+          abonoCapital = ultimoPago.abonoCapital || compra.valorCuota
+          targetCuentaId = cuentaId || ultimoPago.cuentaId || prev.cuentas[0]?.id
+        } else {
+          targetCuentaId = cuentaId || prev.cuentas[0]?.id
+        }
+
+        refundMonto = montoReembolso
+        const nuevaCuotasPagadas = Math.max(0, compra.cuotasPagadas - 1)
+        cuotaRestablecida = nuevaCuotasPagadas + 1
+        const nuevoSaldo = Math.min(compra.montoTotal, compra.saldoRestante + abonoCapital)
+
+        const nextCuentas = (prev.cuentas || []).map((c) =>
+          c.id === targetCuentaId ? { ...c, saldo: c.saldo + montoReembolso } : c
+        )
+
+        const nextCompras = (prev.comprasCuotas || []).map((c) =>
+          c.id === compraId
+            ? {
+                ...c,
+                cuotasPagadas: nuevaCuotasPagadas,
+                saldoRestante: nuevoSaldo,
+                estado: 'ACTIVA' as const,
+                historialPagos: nextHistorial,
+              }
+            : c
+        )
+
+        return {
+          ...prev,
+          cuentas: nextCuentas,
+          comprasCuotas: nextCompras,
+        }
+      })
+
+      if (refundMonto > 0) {
+        showToast(
+          'Pago de cuota revertido',
+          `Se reembolsaron $${refundMonto.toLocaleString('es-CO')} a tu cuenta y se restableció la cuota ${cuotaRestablecida}`,
+          'success'
+        )
+      } else {
+        showToast('Sin pagos que revertir', 'Esta compra no tiene cuotas pagadas registradas', 'warning')
+      }
+    },
+    [updateAndSaveState, showToast]
+  )
+
+  const pagarTarjeta = useCallback(
+    (params: {
+      tarjetaId: string
+      cuentaId: string
+      tipoPago: 'TOTAL' | 'MINIMO' | 'PERSONALIZADO'
+      montoAPagar: number
+      mes?: string
+    }) => {
+      const { tarjetaId, cuentaId, tipoPago, montoAPagar } = params
+
+      if (!tarjetaId || !cuentaId || montoAPagar <= 0) {
+        showToast('Error en el pago', 'Monto o cuenta de débito no válidos', 'error')
+        return
+      }
+
+      updateAndSaveState((prev) => {
+        const tarjeta = (prev.tarjetas || []).find((t) => t.id === tarjetaId)
+        if (!tarjeta) return prev
+
+        // 1. Descontar el valor total exacto de la cuenta de débito / ahorros
+        const nextCuentas = (prev.cuentas || []).map((c) =>
+          c.id === cuentaId ? { ...c, saldo: c.saldo - montoAPagar } : c
+        )
+
+        // 2. Avanzar 1 cuota en cada una de las compras diferidas activas de esta tarjeta
+        const todayStr = new Date().toISOString().slice(0, 10)
+        const nextComprasCuotas = (prev.comprasCuotas || []).map((compra) => {
+          if (
+            compra.tarjetaId !== tarjetaId ||
+            compra.estado !== 'ACTIVA' ||
+            compra.cuotasPagadas >= compra.cuotasTotales
+          ) {
+            return compra
+          }
+
+          const proximaCuota = compra.cuotasPagadas + 1
+          const i = compra.tasaInteresMensual > 0 ? compra.tasaInteresMensual / 100 : 0
+          const interes = Math.round(compra.saldoRestante * i)
+          let abonoCapital = Math.max(0, compra.valorCuota - interes)
+
+          if (abonoCapital > compra.saldoRestante || proximaCuota >= compra.cuotasTotales) {
+            abonoCapital = compra.saldoRestante
+          }
+
+          const nuevoSaldo = Math.max(0, compra.saldoRestante - abonoCapital)
+          const nuevoEstado: 'ACTIVA' | 'PAGADA' =
+            nuevoSaldo === 0 || proximaCuota >= compra.cuotasTotales ? 'PAGADA' : 'ACTIVA'
+
+          const pagoDetalle: PagoCuotaDetalle = {
+            numeroCuota: proximaCuota,
+            fechaPago: todayStr,
+            montoPagado: compra.valorCuota,
+            abonoCapital,
+            interes,
+            cuentaId,
+          }
+
+          return {
+            ...compra,
+            cuotasPagadas: proximaCuota,
+            saldoRestante: nuevoSaldo,
+            estado: nuevoEstado,
+            historialPagos: [...(compra.historialPagos || []), pagoDetalle],
+          }
+        })
+
+        // 3. Actualizar el estado del extracto de la tarjeta para reflejar el pago
+        const nextTarjetas = (prev.tarjetas || []).map((t) => {
+          if (t.id !== tarjetaId) return t
+
+          const ext = t.ultimoExtracto
+          if (!ext) return t
+
+          if (tipoPago === 'TOTAL') {
+            return {
+              ...t,
+              ultimoExtracto: {
+                ...ext,
+                pagoTotal: 0,
+                pagoMinimo: 0,
+                deudaCorte: 0,
+                cupoDisponible: t.cupoTotal,
+              },
+            }
+          }
+
+          if (tipoPago === 'MINIMO') {
+            const nuevoPagoTotal = Math.max(0, (ext.pagoTotal ?? 0) - montoAPagar)
+            const nuevoDisponible = Math.min(t.cupoTotal, (ext.cupoDisponible ?? 0) + montoAPagar)
+            return {
+              ...t,
+              ultimoExtracto: {
+                ...ext,
+                pagoMinimo: 0,
+                pagoTotal: nuevoPagoTotal,
+                cupoDisponible: nuevoDisponible,
+              },
+            }
+          }
+
+          // PERSONALIZADO
+          const nuevoPagoTotal = Math.max(0, (ext.pagoTotal ?? 0) - montoAPagar)
+          const nuevoPagoMinimo = Math.max(0, (ext.pagoMinimo ?? 0) - montoAPagar)
+          const nuevoDisponible = Math.min(t.cupoTotal, (ext.cupoDisponible ?? 0) + montoAPagar)
+          return {
+            ...t,
+            ultimoExtracto: {
+              ...ext,
+              pagoTotal: nuevoPagoTotal,
+              pagoMinimo: nuevoPagoMinimo,
+              cupoDisponible: nuevoDisponible,
+            },
+          }
+        })
+
+        return {
+          ...prev,
+          cuentas: nextCuentas,
+          tarjetas: nextTarjetas,
+          comprasCuotas: nextComprasCuotas,
+        }
+      })
+
+      showToast(
+        'Pago de Tarjeta Registrado',
+        `Se debitaron $${montoAPagar.toLocaleString('es-CO')} de tu cuenta para liquidar la facturación de la tarjeta`,
+        'success'
+      )
+    },
+    [updateAndSaveState, showToast]
+  )
+
   const prepagarCompra = useCallback(
     (compraId: string, cuentaId?: string) => {
       updateAndSaveState((prev) => {
@@ -1398,6 +1679,8 @@ export function FinanceProvider({ children }: { children: ReactNode }) {
         addCompraCuota,
         updateCompraCuota,
         pagarCuotaCompra,
+        revertirPagoCuotaCompra,
+        pagarTarjeta,
         prepagarCompra,
         deleteCompraCuota,
         setPresupuesto,
