@@ -7,6 +7,7 @@ import type {
   GastoPersonal,
   GastoRecurrenteFijo,
   IngresoPersonal,
+  PagoTarjetaGeneral,
   PresupuestoCategoria,
   ServicioPublico,
   TarjetaCredito,
@@ -37,6 +38,7 @@ export interface FullFinanceState {
   gastosRecurrentes: GastoRecurrenteFijo[]
   tarjetas: TarjetaCredito[]
   comprasCuotas: CompraCuota[]
+  pagosTarjetas?: PagoTarjetaGeneral[]
   presupuestos: PresupuestoCategoria[]
   transferencias: TransferenciaCuenta[]
   version: number
@@ -56,6 +58,7 @@ export const storageService = {
       gastosRecurrentes: [],
       tarjetas: initialTarjetas,
       comprasCuotas: [],
+      pagosTarjetas: [],
       presupuestos: [],
       transferencias: [],
       version: 1,
@@ -75,6 +78,7 @@ export const storageService = {
       gastosRecurrentes: initialGastosRecurrentes,
       tarjetas: initialTarjetas,
       comprasCuotas: initialComprasCuotas,
+      pagosTarjetas: [],
       presupuestos: initialPresupuestos,
       transferencias: [],
       version: 1,

@@ -215,6 +215,17 @@ export interface CompraCuota {
   notas?: string
 }
 
+export interface PagoTarjetaGeneral {
+  id: string
+  fecha: string
+  tarjetaId: string
+  cuentaId: string
+  monto: Dinero
+  tipoPago: 'TOTAL' | 'MINIMO' | 'PERSONALIZADO'
+  mes: string
+  descripcion?: string
+}
+
 export interface TransferenciaCuenta {
   id: string
   fecha: string

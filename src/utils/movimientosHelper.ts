@@ -225,18 +225,49 @@ export function consolidarMovimientos(
     })
   })
 
-  // 7. Pagos de Cuotas de Tarjeta registradas en el historial
+  // 7. Pagos Globales de Tarjetas de Crédito (Pagos Mínimos, Totales o Facturación del Mes)
+  ;(state.pagosTarjetas || []).forEach((pt) => {
+    const c = mapaCuentas.get(pt.cuentaId)
+    const t = mapaTarjetas.get(pt.tarjetaId)
+
+    list.push({
+      id: pt.id,
+      fecha: pt.fecha,
+      modulo: 'TARJETAS',
+      moduloLabel: 'Tarjetas',
+      descripcion: pt.descripcion || `Pago ${pt.tipoPago === 'MINIMO' ? 'Mínimo' : pt.tipoPago === 'TOTAL' ? 'Total' : 'Parcial'} ${t?.nombre || 'Tarjeta'}`,
+      categoria: 'Pago Tarjeta de Crédito',
+      tipo: 'CUOTA_TARJETA',
+      monto: pt.monto,
+      cuentaId: pt.cuentaId,
+      cuentaNombre: c?.nombre || 'Cuenta Débito',
+      cuentaTipo: c?.tipo,
+      tarjetaId: pt.tarjetaId,
+      tarjetaNombre: t?.nombre || 'Tarjeta de Crédito',
+      medioPagoLabel: c ? `${c.nombre} -> ${t?.nombre || 'Tarjeta'}` : t?.nombre || 'Tarjeta',
+      medioPagoColor: '#8b5cf6',
+      periodo: pt.mes || pt.fecha.slice(0, 7),
+      notas: `Pago liquidado desde ${c?.nombre || 'cuenta'} para pagar tarjeta`,
+    })
+  })
+
+  // 8. Pagos individuales de cuotas de compras diferidas
   ;(state.comprasCuotas || []).forEach((compra) => {
     const t = mapaTarjetas.get(compra.tarjetaId)
     ;(compra.historialPagos || []).forEach((pago, idx) => {
+      const yaRegistradoGlobal = (state.pagosTarjetas || []).some(
+        (pt) => pt.tarjetaId === compra.tarjetaId && pt.fecha === pago.fechaPago && pt.cuentaId === pago.cuentaId
+      )
+      if (yaRegistradoGlobal) return
+
       const c = pago.cuentaId ? mapaCuentas.get(pago.cuentaId) : undefined
       list.push({
         id: `pago-cuota-${compra.id}-${pago.numeroCuota}-${idx}`,
         fecha: pago.fechaPago,
         modulo: 'TARJETAS',
-        moduloLabel: 'Tarjeta',
+        moduloLabel: 'Tarjetas',
         descripcion: `Cuota ${pago.numeroCuota}/${compra.cuotasTotales} - ${compra.descripcion}`,
-        categoria: 'Pago Tarjeta / Cuota',
+        categoria: 'Pago Cuota Tarjeta',
         tipo: 'CUOTA_TARJETA',
         monto: pago.montoPagado || compra.valorCuota,
         cuentaId: pago.cuentaId,

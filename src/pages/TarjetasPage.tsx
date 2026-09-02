@@ -642,15 +642,20 @@ export function TarjetasPage() {
                       .filter((c) => c.tarjetaId === t.id && c.estado === 'ACTIVA' && c.cuotasPagadas < c.cuotasTotales)
                       .reduce((acc, c) => acc + c.valorCuota, 0)
 
-                    const pagoMinimoReal = t.ultimoExtracto?.pagoMinimo !== undefined
-                      ? t.ultimoExtracto.pagoMinimo
-                      : (cuotasMesTc > 0 ? cuotasMesTc : consumos1CuotaTc)
-                    const pagoTotalReal = t.ultimoExtracto?.pagoTotal !== undefined
-                      ? t.ultimoExtracto.pagoTotal
-                      : (cuotasMesTc + consumos1CuotaTc)
-                    const cupoLibreReal = t.ultimoExtracto?.cupoDisponible !== undefined
-                      ? t.ultimoExtracto.cupoDisponible
-                      : Math.max(0, t.cupoTotal - deudaDiferidaTc - consumos1CuotaTc)
+                    const pagoMinimoReal =
+                      t.ultimoExtracto?.pagoMinimo && t.ultimoExtracto.pagoMinimo > 0
+                        ? t.ultimoExtracto.pagoMinimo
+                        : cuotasMesTc > 0
+                        ? cuotasMesTc
+                        : consumos1CuotaTc
+                    const pagoTotalReal =
+                      t.ultimoExtracto?.pagoTotal && t.ultimoExtracto.pagoTotal > 0
+                        ? t.ultimoExtracto.pagoTotal
+                        : cuotasMesTc + consumos1CuotaTc
+                    const cupoLibreReal =
+                      t.ultimoExtracto?.cupoDisponible !== undefined
+                        ? t.ultimoExtracto.cupoDisponible
+                        : Math.max(0, t.cupoTotal - deudaDiferidaTc - consumos1CuotaTc)
 
                     return (
                       <tr key={t.id}>
@@ -809,8 +814,16 @@ export function TarjetasPage() {
           .filter((c) => c.estado === 'ACTIVA')
           .reduce((acc, c) => acc + c.saldoRestante, 0)
 
-        const pagoMinimoReal = ext?.pagoMinimo !== undefined ? ext.pagoMinimo : (totalCuotasMesTc || totalConsumos1CuotaTc)
-        const pagoTotalReal = ext?.pagoTotal !== undefined ? ext.pagoTotal : (totalCuotasMesTc + totalConsumos1CuotaTc)
+        const pagoMinimoReal =
+          ext?.pagoMinimo && ext.pagoMinimo > 0
+            ? ext.pagoMinimo
+            : totalCuotasMesTc > 0
+            ? totalCuotasMesTc
+            : totalConsumos1CuotaTc
+        const pagoTotalReal =
+          ext?.pagoTotal && ext.pagoTotal > 0
+            ? ext.pagoTotal
+            : totalCuotasMesTc + totalConsumos1CuotaTc
         const cupoLibreReal = ext?.cupoDisponible !== undefined ? ext.cupoDisponible : Math.max(0, tarjeta.cupoTotal - deudaDiferidaTotal - totalConsumos1CuotaTc)
         const deudaCorteReal = ext?.deudaCorte !== undefined ? ext.deudaCorte : (deudaDiferidaTotal + totalConsumos1CuotaTc)
 

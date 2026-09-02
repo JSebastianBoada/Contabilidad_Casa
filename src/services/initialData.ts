@@ -7,6 +7,7 @@ import type {
   GastoPersonal,
   GastoRecurrenteFijo,
   IngresoPersonal,
+  PagoTarjetaGeneral,
   PresupuestoCategoria,
   ServicioPublico,
   TarjetaCredito,
@@ -103,3 +104,5 @@ export const initialComprasCuotas: CompraCuota[] = []
 export const initialPresupuestos: PresupuestoCategoria[] = []
 
 export const initialGastosRecurrentes: GastoRecurrenteFijo[] = []
+
+export const initialPagosTarjetas: PagoTarjetaGeneral[] = []

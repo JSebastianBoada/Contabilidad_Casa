@@ -1,4 +1,5 @@
 import { useState, useMemo, type FormEvent } from 'react'
+import { Landmark, Smartphone, Banknote, Users, Wallet, CreditCard, Building2 } from 'lucide-react'
 import { useFinance } from '../context/FinanceContext'
 import { Modal } from '../components/Modal'
 import { formatMoney, formatDate, formatMonthYear, getLocalTodayISO } from '../utils/formatters'
@@ -14,81 +15,60 @@ function getAccountVisualInfo(c: CuentaFinanciera) {
   const isNu = nombre.includes('nu')
   const isEfectivo = c.tipo === 'EFECTIVO' || nombre.includes('efectivo')
 
-  if (isHermano) {
-    return {
-      icon: '',
-      color: '#06b6d4',
-      bgGlow: 'rgba(6, 182, 212, 0.12)',
-      borderColor: 'rgba(6, 182, 212, 0.4)',
-      textColor: '#22d3ee',
-      tipoLabel: 'Fondo Hermano',
-    }
+  // Priorizar SIEMPRE el color seleccionado por el usuario en c.color
+  let color = c.color
+  if (!color) {
+    if (isHermano) color = '#06b6d4'
+    else if (isBancolombia) color = '#f59e0b'
+    else if (isNu) color = '#9333ea'
+    else if (isNequi) color = '#8b5cf6'
+    else if (isDaviplata) color = '#ef4444'
+    else if (isEfectivo) color = '#10b981'
+    else color = '#3b82f6'
   }
 
-  if (isBancolombia) {
-    return {
-      icon: '',
-      color: '#f59e0b',
-      bgGlow: 'rgba(245, 158, 11, 0.12)',
-      borderColor: 'rgba(245, 158, 11, 0.4)',
-      textColor: '#fbbf24',
-      tipoLabel: 'Cuenta Bancaria',
-    }
-  }
+  let tipoLabel = 'Cuenta Bancaria'
+  if (isHermano) tipoLabel = 'Fondo Hermano'
+  else if (isNu) tipoLabel = 'Cuenta Nu'
+  else if (isNequi) tipoLabel = 'Nequi'
+  else if (isDaviplata) tipoLabel = 'Daviplata'
+  else if (isEfectivo) tipoLabel = 'Efectivo'
+  else if (c.tipo === 'BANCO') tipoLabel = 'Cuenta Bancaria'
+  else if (c.tipo === 'EFECTIVO') tipoLabel = 'Efectivo'
+  else tipoLabel = 'Billetera Digital'
 
-  if (isNu) {
-    return {
-      icon: '',
-      color: '#9333ea',
-      bgGlow: 'rgba(147, 51, 234, 0.12)',
-      borderColor: 'rgba(147, 51, 234, 0.4)',
-      textColor: '#c084fc',
-      tipoLabel: 'Cuenta Nu',
-    }
-  }
-
-  if (isNequi) {
-    return {
-      icon: '',
-      color: '#8b5cf6',
-      bgGlow: 'rgba(139, 92, 246, 0.12)',
-      borderColor: 'rgba(139, 92, 246, 0.4)',
-      textColor: '#a78bfa',
-      tipoLabel: 'Nequi',
-    }
-  }
-
-  if (isDaviplata) {
-    return {
-      icon: '',
-      color: '#ef4444',
-      bgGlow: 'rgba(239, 68, 68, 0.12)',
-      borderColor: 'rgba(239, 68, 68, 0.4)',
-      textColor: '#f87171',
-      tipoLabel: 'Daviplata',
-    }
-  }
-
-  if (isEfectivo) {
-    return {
-      icon: '',
-      color: '#10b981',
-      bgGlow: 'rgba(16, 185, 129, 0.12)',
-      borderColor: 'rgba(16, 185, 129, 0.4)',
-      textColor: '#34d399',
-      tipoLabel: 'Efectivo',
-    }
-  }
-
-  const customColor = c.color || '#3b82f6'
   return {
-    icon: '',
-    color: customColor,
-    bgGlow: `${customColor}18`,
-    borderColor: `${customColor}45`,
-    textColor: customColor,
-    tipoLabel: c.tipo === 'BANCO' ? 'Cuenta Bancaria' : c.tipo === 'EFECTIVO' ? 'Efectivo' : 'Billetera Digital',
+    color,
+    bgGlow: `${color}1a`,
+    borderColor: `${color}48`,
+    textColor: color,
+    tipoLabel,
   }
+}
+
+function renderAccountIcon(c: CuentaFinanciera, color: string, size = 22) {
+  const nombre = (c.nombre || '').toLowerCase()
+  const icono = c.icono || ''
+
+  if (icono === 'landmark' || c.tipo === 'BANCO' || nombre.includes('bancolombia') || nombre.includes('banco')) {
+    return <Landmark size={size} color={color} />
+  }
+  if (icono === 'users' || c.id === 'cuenta-hermano' || nombre.includes('hermano') || nombre.includes('fondo')) {
+    return <Users size={size} color={color} />
+  }
+  if (icono === 'banknote' || c.tipo === 'EFECTIVO' || nombre.includes('efectivo')) {
+    return <Banknote size={size} color={color} />
+  }
+  if (icono === 'smartphone' || nombre.includes('nequi') || nombre.includes('daviplata') || nombre.includes('nu') || nombre.includes('billetera')) {
+    return <Smartphone size={size} color={color} />
+  }
+  if (icono === 'credit-card') {
+    return <CreditCard size={size} color={color} />
+  }
+  if (icono === 'building') {
+    return <Building2 size={size} color={color} />
+  }
+  return <Wallet size={size} color={color} />
 }
 
 export function CuentasPage() {
@@ -112,6 +92,7 @@ export function CuentasPage() {
   const [saldo, setSaldo] = useState('')
   const [numero, setNumero] = useState('')
   const [color, setColor] = useState('#3b82f6')
+  const [icono, setIcono] = useState('landmark')
 
   // Form State Transferencia
   const [origenId, setOrigenId] = useState(state.cuentas[0]?.id || '')
@@ -165,6 +146,7 @@ export function CuentasPage() {
     setSaldo('')
     setNumero('')
     setColor('#3b82f6')
+    setIcono('landmark')
     setModalCuentaOpen(true)
   }
 
@@ -175,6 +157,7 @@ export function CuentasPage() {
     setSaldo(String(c.saldo))
     setNumero(c.numero || '')
     setColor(c.color || '#3b82f6')
+    setIcono(c.icono || (c.tipo === 'BANCO' ? 'landmark' : c.tipo === 'EFECTIVO' ? 'banknote' : 'smartphone'))
     setModalCuentaOpen(true)
   }
 
@@ -199,6 +182,7 @@ export function CuentasPage() {
         saldo: Number(saldo) || 0,
         numero: numero || undefined,
         color,
+        icono,
       })
       setEditingCuentaId(null)
     } else {
@@ -208,6 +192,7 @@ export function CuentasPage() {
         saldo: Number(saldo) || 0,
         numero: numero || undefined,
         color,
+        icono,
       })
     }
 
@@ -454,15 +439,14 @@ export function CuentasPage() {
                       height: '44px',
                       borderRadius: '12px',
                       backgroundColor: visual.bgGlow,
-                      border: `1px solid ${visual.borderColor}`,
+                      border: `1.5px solid ${visual.borderColor}`,
                       display: 'flex',
                       alignItems: 'center',
                       justifyContent: 'center',
-                      fontSize: '1.45rem',
-                      boxShadow: `0 0 12px ${visual.bgGlow}`,
+                      boxShadow: `0 0 14px ${visual.bgGlow}`,
                     }}
                   >
-                    {visual.icon}
+                    {renderAccountIcon(c, visual.color, 22)}
                   </div>
 
                   <span
@@ -905,27 +889,73 @@ export function CuentasPage() {
             </div>
           </div>
 
+          <div className="form-group">
+            <label>Número / Identificador (Opcional)</label>
+            <input
+              type="text"
+              className="form-input"
+              placeholder="Ej: •••• 4589 o Bolsillo para Almuerzos"
+              value={numero}
+              onChange={(e) => setNumero(e.target.value)}
+            />
+          </div>
+
           <div className="form-grid">
             <div className="form-group">
-              <label>Número / Identificador (Opcional)</label>
-              <input
-                type="text"
-                className="form-input"
-                placeholder="Ej: •••• 4589 o Bolsillo para Almuerzos"
-                value={numero}
-                onChange={(e) => setNumero(e.target.value)}
-              />
+              <label>Icono Representativo</label>
+              <select className="form-select" value={icono} onChange={(e) => setIcono(e.target.value)}>
+                <option value="landmark">Banco / Entidad Financiera</option>
+                <option value="smartphone">Billetera Digital / App Móvil</option>
+                <option value="banknote">Efectivo Físico / Billetes</option>
+                <option value="wallet">Billetera / Bolsillo Personal</option>
+                <option value="users">Fondo Compartido / Hermano</option>
+                <option value="credit-card">Tarjeta Débito / Plástico</option>
+                <option value="building">Edificio / Inmuebles</option>
+              </select>
             </div>
 
             <div className="form-group">
-              <label>Color Identificador</label>
-              <input
-                type="color"
-                className="form-input"
-                style={{ height: '42px', padding: '2px', cursor: 'pointer' }}
-                value={color}
-                onChange={(e) => setColor(e.target.value)}
-              />
+              <label>Color de la Cuenta</label>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+                <input
+                  type="color"
+                  className="form-input"
+                  style={{ width: '48px', height: '40px', padding: '2px', cursor: 'pointer', flexShrink: 0 }}
+                  value={color}
+                  onChange={(e) => setColor(e.target.value)}
+                />
+                <div style={{ display: 'flex', gap: '0.35rem', flexWrap: 'wrap' }}>
+                  {[
+                    { c: '#f59e0b', label: 'Amarillo / Bancolombia' },
+                    { c: '#9333ea', label: 'Morado / Nu' },
+                    { c: '#8b5cf6', label: 'Violeta / Nequi' },
+                    { c: '#ef4444', label: 'Rojo / Daviplata' },
+                    { c: '#10b981', label: 'Verde / Efectivo' },
+                    { c: '#06b6d4', label: 'Cyan / Hermano' },
+                    { c: '#3b82f6', label: 'Azul' },
+                    { c: '#ec4899', label: 'Rosa' },
+                  ].map((preset) => (
+                    <button
+                      key={preset.c}
+                      type="button"
+                      onClick={() => setColor(preset.c)}
+                      style={{
+                        width: '26px',
+                        height: '26px',
+                        borderRadius: '50%',
+                        backgroundColor: preset.c,
+                        border: color.toLowerCase() === preset.c.toLowerCase() ? '2.5px solid #ffffff' : '1px solid rgba(255,255,255,0.2)',
+                        boxShadow: color.toLowerCase() === preset.c.toLowerCase() ? `0 0 10px ${preset.c}` : 'none',
+                        cursor: 'pointer',
+                        padding: 0,
+                        transition: 'transform 0.15s ease',
+                        transform: color.toLowerCase() === preset.c.toLowerCase() ? 'scale(1.15)' : 'scale(1)',
+                      }}
+                      title={preset.label}
+                    />
+                  ))}
+                </div>
+              </div>
             </div>
           </div>
 

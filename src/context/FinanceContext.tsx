@@ -17,6 +17,7 @@ import type {
   GastoRecurrenteFijo,
   IngresoPersonal,
   PagoCuotaDetalle,
+  PagoTarjetaGeneral,
   PresupuestoCategoria,
   ServicioPublico,
   TarjetaCredito,
@@ -286,6 +287,7 @@ function sanitizeAndDeduplicateState(stateObj: FullFinanceState): FullFinanceSta
       gastosPersonales: [],
       gastosRecurrentes: [],
       comprasCuotas: [],
+      pagosTarjetas: [],
       presupuestos: [],
       transferencias: [],
       version: 2,
@@ -316,6 +318,7 @@ function sanitizeAndDeduplicateState(stateObj: FullFinanceState): FullFinanceSta
     cuentas: fixUniqueIds(ensureDefaultCuentas(stateObj.cuentas), 'cuenta'),
     tarjetas: fixUniqueIds(stateObj.tarjetas, 'tc'),
     comprasCuotas: fixUniqueIds(stateObj.comprasCuotas, 'cc'),
+    pagosTarjetas: fixUniqueIds(stateObj.pagosTarjetas || [], 'pago-tc'),
     gastosPersonales: fixUniqueIds(stateObj.gastosPersonales, 'gp'),
     alimentacion: fixUniqueIds(stateObj.alimentacion, 'alim'),
     comprasHogar: fixUniqueIds(stateObj.comprasHogar, 'comp-hogar'),
@@ -1394,7 +1397,7 @@ export function FinanceProvider({ children }: { children: ReactNode }) {
       montoAPagar: number
       mes?: string
     }) => {
-      const { tarjetaId, cuentaId, tipoPago, montoAPagar } = params
+      const { tarjetaId, cuentaId, tipoPago, montoAPagar, mes } = params
 
       if (!tarjetaId || !cuentaId || montoAPagar <= 0) {
         showToast('Error en el pago', 'Monto o cuenta de débito no válidos', 'error')
@@ -1501,11 +1504,25 @@ export function FinanceProvider({ children }: { children: ReactNode }) {
           }
         })
 
+        // 4. Registrar la transacción bancaria del pago de la tarjeta
+        const mesPago = mes || selectedMonth || getLocalCurrentMonth()
+        const nuevoPagoTarjeta: PagoTarjetaGeneral = {
+          id: `pago-tc-${Date.now()}`,
+          fecha: todayStr,
+          tarjetaId,
+          cuentaId,
+          monto: montoAPagar,
+          tipoPago,
+          mes: mesPago,
+          descripcion: `Pago ${tipoPago === 'MINIMO' ? 'Mínimo' : tipoPago === 'TOTAL' ? 'Total' : 'Parcial'} Tarjeta ${tarjeta.nombre}`,
+        }
+
         return {
           ...prev,
           cuentas: nextCuentas,
           tarjetas: nextTarjetas,
           comprasCuotas: nextComprasCuotas,
+          pagosTarjetas: [...(prev.pagosTarjetas || []), nuevoPagoTarjeta],
         }
       })
 
