@@ -18,6 +18,28 @@ export function formatCompactMoney(value: number): string {
   return formatMoney(safe)
 }
 
+/**
+ * Obtener la fecha local actual del dispositivo en formato YYYY-MM-DD
+ * (evita el desfase de zona horaria UTC que sumaba 1 día en Colombia a partir de las 7:00 PM)
+ */
+export function getLocalTodayISO(): string {
+  const now = new Date()
+  const year = now.getFullYear()
+  const month = String(now.getMonth() + 1).padStart(2, '0')
+  const day = String(now.getDate()).padStart(2, '0')
+  return `${year}-${month}-${day}`
+}
+
+/**
+ * Obtener el mes local actual en formato YYYY-MM
+ */
+export function getLocalCurrentMonth(): string {
+  const now = new Date()
+  const year = now.getFullYear()
+  const month = String(now.getMonth() + 1).padStart(2, '0')
+  return `${year}-${month}`
+}
+
 export function formatDate(dateString: string): string {
   if (!dateString) return ''
   try {
@@ -76,7 +98,7 @@ export function getDaysRemaining(targetDateStr: string): {
     }
   }
   if (diffDays === 0) {
-    return { days: 0, isExpired: false, label: '¡Vence hoy!' }
+    return { days: 0, isExpired: false, label: 'Vence hoy' }
   }
   if (diffDays === 1) {
     return { days: 1, isExpired: false, label: 'Vence mañana' }

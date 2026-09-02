@@ -2,7 +2,7 @@ import { useState, useMemo, type FormEvent } from 'react'
 import { useFinance } from '../context/FinanceContext'
 import { Modal } from '../components/Modal'
 import { DatePickerInput } from '../components/DatePickerInput'
-import { formatMoney, formatDate, formatMonthYear } from '../utils/formatters'
+import { formatMoney, formatDate, formatMonthYear, getLocalTodayISO } from '../utils/formatters'
 import type { CategoriaGastoPersonal, MetodoPago, TipoIngreso } from '../types/finance'
 
 export function PersonalPage() {
@@ -34,7 +34,7 @@ export function PersonalPage() {
   const [descIngreso, setDescIngreso] = useState('')
   const [montoIngreso, setMontoIngreso] = useState('')
   const [periodoIngreso, setPeriodoIngreso] = useState<'QUINCENA_1' | 'QUINCENA_2' | 'MENSUAL' | 'PUNTUAL'>('QUINCENA_1')
-  const [fechaIngreso, setFechaIngreso] = useState(new Date().toISOString().slice(0, 10))
+  const [fechaIngreso, setFechaIngreso] = useState(getLocalTodayISO())
   const [cuentaIngresoId, setCuentaIngresoId] = useState(state.cuentas[0]?.id || '')
 
   // Form State Gasto Personal
@@ -42,7 +42,7 @@ export function PersonalPage() {
   const [descGasto, setDescGasto] = useState('')
   const [montoGasto, setMontoGasto] = useState('')
   const [lugarGasto, setLugarGasto] = useState('')
-  const [fechaGasto, setFechaGasto] = useState(new Date().toISOString().slice(0, 10))
+  const [fechaGasto, setFechaGasto] = useState(getLocalTodayISO())
   const [medioPagoSeleccionado, setMedioPagoSeleccionado] = useState(
     state.tarjetas.length > 0 ? `tarjeta:${state.tarjetas[0].id}` : state.cuentas[0] ? `cuenta:${state.cuentas[0].id}` : ''
   )
@@ -272,14 +272,14 @@ export function PersonalPage() {
           className={`tab-btn ${activeTab === 'GASTOS_PERSONALES' ? 'active' : ''}`}
           onClick={() => setActiveTab('GASTOS_PERSONALES')}
         >
-          🎉 Gastos del Mes ({formatMoney(totalGastosPersonalesMes)})
+          Gastos del Mes ({formatMoney(totalGastosPersonalesMes)})
         </button>
         <button
           type="button"
           className={`tab-btn ${activeTab === 'GASTOS_FIJOS' ? 'active' : ''}`}
           onClick={() => setActiveTab('GASTOS_FIJOS')}
         >
-          🔁 Gastos Fijos & Suscripciones ({gastosRecurrentesLista.length})
+          Gastos Fijos & Suscripciones ({gastosRecurrentesLista.length})
           {cantidadPendientesMes > 0 && (
             <span className="badge warning" style={{ marginLeft: '6px', fontSize: '0.7rem' }}>
               {cantidadPendientesMes} pendientes
@@ -291,7 +291,7 @@ export function PersonalPage() {
           className={`tab-btn ${activeTab === 'INGRESOS' ? 'active' : ''}`}
           onClick={() => setActiveTab('INGRESOS')}
         >
-          💰 Ingresos & Nómina ({formatMoney(totalIngresosMes)})
+          Ingresos & Nómina ({formatMoney(totalIngresosMes)})
         </button>
       </div>
 
@@ -314,7 +314,7 @@ export function PersonalPage() {
               }}
             >
               <div>
-                <strong>📌 Tienes {cantidadPendientesMes} gastos fijos mensuales pendientes de aplicar este mes:</strong>
+                <strong>Tienes {cantidadPendientesMes} gastos fijos mensuales pendientes de aplicar este mes:</strong>
                 <span style={{ display: 'block', fontSize: '0.8rem', opacity: 0.9 }}>
                   Parqueadero, Plan celular, Netflix, Crunchyroll, etc. (Total pendiente: {formatMoney(totalPendienteMes)})
                 </span>
@@ -324,7 +324,7 @@ export function PersonalPage() {
                 className="btn primary sm"
                 onClick={() => aplicarTodosRecurrentesPendientes(selectedMonth)}
               >
-                🚀 Aplicar todos a {formatMonthYear(selectedMonth)}
+                Aplicar todos a {formatMonthYear(selectedMonth)}
               </button>
             </div>
           )}
@@ -344,49 +344,49 @@ export function PersonalPage() {
             }}
           >
             <span style={{ fontSize: '0.825rem', fontWeight: 600, color: 'var(--color-text-muted)' }}>
-              ⚡ Registro Rápido:
+              Registro Rápido:
             </span>
             <button
               type="button"
               className="btn secondary sm"
               onClick={() => aplicarPresetGasto('PARQUEADERO', 'Pago mensual de Parqueadero', 30000, false)}
             >
-              🅿️ Parqueadero ($30k)
+              Parqueadero ($30k)
             </button>
             <button
               type="button"
               className="btn secondary sm"
               onClick={() => aplicarPresetGasto('CELULAR', 'Plan Celular Mensual (Claro/Tigo/WOM)', 45000, true)}
             >
-              📱 Plan Celular ($45k)
+              Plan Celular ($45k)
             </button>
             <button
               type="button"
               className="btn secondary sm"
               onClick={() => aplicarPresetGasto('GASOLINA', 'Tanqueo de Gasolina / Combustible', 50000, true)}
             >
-              ⛽ Gasolina ($50k)
+              Gasolina ($50k)
             </button>
             <button
               type="button"
               className="btn secondary sm"
               onClick={() => aplicarPresetGasto('GASOLINA', 'Tanqueo de Gasolina / Combustible Lleno', 100000, true)}
             >
-              ⛽ Gasolina ($100k)
+              Gasolina ($100k)
             </button>
             <button
               type="button"
               className="btn secondary sm"
               onClick={() => aplicarPresetGasto('SUSCRIPCIONES', 'Suscripción Streaming (Netflix / Spotify)', 35000, true)}
             >
-              📺 Netflix/Spotify ($35k)
+              Netflix/Spotify ($35k)
             </button>
             <button
               type="button"
               className="btn secondary sm"
               onClick={() => aplicarPresetGasto('SUSCRIPCIONES', 'Suscripción Crunchyroll Anime', 15000, true)}
             >
-              🍙 Crunchyroll ($15k)
+              Crunchyroll ($15k)
             </button>
           </div>
 
@@ -394,7 +394,7 @@ export function PersonalPage() {
           <div className="stat-grid">
             <article className="stat-card" style={{ borderLeft: '4px solid #0284c7' }}>
               <div className="stat-card-top">
-                <span className="stat-card-title">🅿️ Parqueadero</span>
+                <span className="stat-card-title">Parqueadero</span>
                 <span className="badge neutral">Fijo Mensual</span>
               </div>
               <div className="stat-value">{formatMoney(totalParqueadero)}</div>
@@ -403,7 +403,7 @@ export function PersonalPage() {
 
             <article className="stat-card" style={{ borderLeft: '4px solid #3b82f6' }}>
               <div className="stat-card-top">
-                <span className="stat-card-title">📱 Celular & Móvil</span>
+                <span className="stat-card-title">Celular & Móvil</span>
                 <span className="badge neutral">Servicio Mensual</span>
               </div>
               <div className="stat-value">{formatMoney(totalCelular)}</div>
@@ -412,7 +412,7 @@ export function PersonalPage() {
 
             <article className="stat-card" style={{ borderLeft: '4px solid #f97316' }}>
               <div className="stat-card-top">
-                <span className="stat-card-title">⛽ Gasolina & Tanqueo</span>
+                <span className="stat-card-title">Gasolina & Tanqueo</span>
                 <span className="badge neutral">Combustible</span>
               </div>
               <div className="stat-value">{formatMoney(totalGasolina)}</div>
@@ -421,7 +421,7 @@ export function PersonalPage() {
 
             <article className="stat-card" style={{ borderLeft: '4px solid #8b5cf6' }}>
               <div className="stat-card-top">
-                <span className="stat-card-title">💳 Tarjeta (1 Cuota)</span>
+                <span className="stat-card-title">Tarjeta (1 Cuota)</span>
                 <span className="badge credit">Extracto Mes</span>
               </div>
               <div className="stat-value" style={{ color: 'var(--color-credit)' }}>
@@ -432,7 +432,7 @@ export function PersonalPage() {
 
             <article className="stat-card" style={{ borderLeft: '4px solid #10b981' }}>
               <div className="stat-card-top">
-                <span className="stat-card-title">⚽ Ocio & Salidas</span>
+                <span className="stat-card-title">Ocio & Salidas</span>
                 <span className="badge neutral">Entretenimiento</span>
               </div>
               <div className="stat-value">{formatMoney(totalRestaurantesYOcio)}</div>
@@ -469,14 +469,14 @@ export function PersonalPage() {
 
                     let catBadge = 'neutral'
                     let catLabel = gp.categoria.replace(/_/g, ' ')
-                    if (gp.categoria === 'PARQUEADERO') { catBadge = 'primary'; catLabel = '🅿️ Parqueadero'; }
-                    if (gp.categoria === 'CELULAR') { catBadge = 'primary'; catLabel = '📱 Celular'; }
-                    if (gp.categoria === 'GASOLINA') { catBadge = 'warning'; catLabel = '⛽ Gasolina'; }
-                    if (gp.categoria === 'SUSCRIPCIONES') { catBadge = 'credit'; catLabel = '📺 Suscripciones'; }
-                    if (gp.categoria === 'RESTAURANTES_COMIDAS_FUERA') { catBadge = 'income'; catLabel = '🍔 Restaurantes'; }
-                    if (gp.categoria === 'PARTIDOS_OCIO_EVENTOS') { catBadge = 'primary'; catLabel = '⚽ Partidos / Ocio'; }
-                    if (gp.categoria === 'REGALOS') { catBadge = 'credit'; catLabel = '🎁 Regalos'; }
-                    if (gp.categoria === 'SEGUROS_SALUD') { catBadge = 'warning'; catLabel = '🛡️ Salud / Seguro'; }
+                    if (gp.categoria === 'PARQUEADERO') { catBadge = 'primary'; catLabel = 'Parqueadero'; }
+                    if (gp.categoria === 'CELULAR') { catBadge = 'primary'; catLabel = 'Celular'; }
+                    if (gp.categoria === 'GASOLINA') { catBadge = 'warning'; catLabel = 'Gasolina'; }
+                    if (gp.categoria === 'SUSCRIPCIONES') { catBadge = 'credit'; catLabel = 'Suscripciones'; }
+                    if (gp.categoria === 'RESTAURANTES_COMIDAS_FUERA') { catBadge = 'income'; catLabel = 'Restaurantes'; }
+                    if (gp.categoria === 'PARTIDOS_OCIO_EVENTOS') { catBadge = 'primary'; catLabel = 'Partidos / Ocio'; }
+                    if (gp.categoria === 'REGALOS') { catBadge = 'credit'; catLabel = 'Regalos'; }
+                    if (gp.categoria === 'SEGUROS_SALUD') { catBadge = 'warning'; catLabel = 'Salud / Seguro'; }
 
                     return (
                       <tr key={gp.id}>
@@ -490,7 +490,7 @@ export function PersonalPage() {
                           <strong>{gp.descripcion}</strong>
                           {gp.recurrenteId && (
                             <span className="badge neutral" style={{ fontSize: '0.65rem', marginLeft: '6px' }}>
-                              🔁 Gasto Fijo
+                              Gasto Fijo
                             </span>
                           )}
                         </td>
@@ -498,11 +498,11 @@ export function PersonalPage() {
                         <td>
                           {tarjeta ? (
                             <span className="badge credit" style={{ fontSize: '0.725rem' }}>
-                              💳 {tarjeta.nombre} (1 cuota)
+                              {tarjeta.nombre} (1 cuota)
                             </span>
                           ) : (
                             <span className="badge neutral" style={{ fontSize: '0.725rem' }}>
-                              🏦 {cuenta?.nombre || 'Efectivo / Cuenta'}
+                              {cuenta?.nombre || 'Efectivo / Cuenta'}
                             </span>
                           )}
                         </td>
@@ -516,7 +516,7 @@ export function PersonalPage() {
                             onClick={() => deleteGastoPersonal(gp.id)}
                             title="Eliminar gasto"
                           >
-                            ✕
+                            Eliminar
                           </button>
                         </td>
                       </tr>
@@ -591,49 +591,49 @@ export function PersonalPage() {
             }}
           >
             <span style={{ fontSize: '0.825rem', fontWeight: 600, color: 'var(--color-text-muted)' }}>
-              ⚡ Agregar Fijo Frecuente:
+              Agregar Fijo Frecuente:
             </span>
             <button
               type="button"
               className="btn secondary sm"
-              onClick={() => crearPlantillaRecurrenteRapida('🅿️ Parqueadero mensual', 'PARQUEADERO', 30000, 5, false)}
+              onClick={() => crearPlantillaRecurrenteRapida('Parqueadero mensual', 'PARQUEADERO', 30000, 5, false)}
             >
-              + 🅿️ Parqueadero ($30k)
+              + Parqueadero ($30k)
             </button>
             <button
               type="button"
               className="btn secondary sm"
-              onClick={() => crearPlantillaRecurrenteRapida('📱 Plan Celular Móvil', 'CELULAR', 45000, 10, true)}
+              onClick={() => crearPlantillaRecurrenteRapida('Plan Celular Móvil', 'CELULAR', 45000, 10, true)}
             >
-              + 📱 Plan Celular ($45k)
+              + Plan Celular ($45k)
             </button>
             <button
               type="button"
               className="btn secondary sm"
-              onClick={() => crearPlantillaRecurrenteRapida('🎬 Netflix Plan Estándar', 'SUSCRIPCIONES', 35000, 15, true)}
+              onClick={() => crearPlantillaRecurrenteRapida('Netflix Plan Estándar', 'SUSCRIPCIONES', 35000, 15, true)}
             >
-              + 🎬 Netflix ($35k)
+              + Netflix ($35k)
             </button>
             <button
               type="button"
               className="btn secondary sm"
-              onClick={() => crearPlantillaRecurrenteRapida('🍙 Crunchyroll Fan', 'SUSCRIPCIONES', 15000, 20, true)}
+              onClick={() => crearPlantillaRecurrenteRapida('Crunchyroll Fan', 'SUSCRIPCIONES', 15000, 20, true)}
             >
-              + 🍙 Crunchyroll ($15k)
+              + Crunchyroll ($15k)
             </button>
             <button
               type="button"
               className="btn secondary sm"
-              onClick={() => crearPlantillaRecurrenteRapida('🎵 Spotify Premium', 'SUSCRIPCIONES', 18000, 25, true)}
+              onClick={() => crearPlantillaRecurrenteRapida('Spotify Premium', 'SUSCRIPCIONES', 18000, 25, true)}
             >
-              + 🎵 Spotify ($18k)
+              + Spotify ($18k)
             </button>
             <button
               type="button"
               className="btn secondary sm"
-              onClick={() => crearPlantillaRecurrenteRapida('💪 Gimnasio Mensual', 'SUSCRIPCIONES', 80000, 5, false)}
+              onClick={() => crearPlantillaRecurrenteRapida('Gimnasio Mensual', 'SUSCRIPCIONES', 80000, 5, false)}
             >
-              + 💪 Gimnasio ($80k)
+              + Gimnasio ($80k)
             </button>
           </div>
 
@@ -653,7 +653,7 @@ export function PersonalPage() {
                     className="btn primary sm"
                     onClick={() => aplicarTodosRecurrentesPendientes(selectedMonth)}
                   >
-                    🚀 Cargar Pendientes a {formatMonthYear(selectedMonth)}
+                    Cargar Pendientes a {formatMonthYear(selectedMonth)}
                   </button>
                 )}
                 <button type="button" className="btn success sm" onClick={() => setModalRecurrenteOpen(true)}>
@@ -693,11 +693,11 @@ export function PersonalPage() {
                         <td>
                           <span className="badge neutral" style={{ fontSize: '0.725rem' }}>
                             {r.categoria === 'PARQUEADERO'
-                              ? '🅿️ Parqueadero'
+                              ? 'Parqueadero'
                               : r.categoria === 'CELULAR'
-                              ? '📱 Celular'
+                              ? 'Celular'
                               : r.categoria === 'SUSCRIPCIONES'
-                              ? '📺 Suscripción'
+                              ? 'Suscripción'
                               : r.categoria}
                           </span>
                         </td>
@@ -705,11 +705,11 @@ export function PersonalPage() {
                         <td>
                           {r.metodoPago === 'TARJETA_CREDITO' ? (
                             <span className="badge credit" style={{ fontSize: '0.725rem' }}>
-                              💳 {tarjeta?.nombre || 'Tarjeta de Crédito'} (1 cuota)
+                              {tarjeta?.nombre || 'Tarjeta de Crédito'} (1 cuota)
                             </span>
                           ) : (
                             <span className="badge neutral" style={{ fontSize: '0.725rem' }}>
-                              🏦 {cuenta?.nombre || 'Cuenta Bancaria'}
+                              {cuenta?.nombre || 'Cuenta Bancaria'}
                             </span>
                           )}
                         </td>
@@ -719,11 +719,11 @@ export function PersonalPage() {
                         <td>
                           {aplicado ? (
                             <span className="badge income" style={{ fontSize: '0.725rem' }}>
-                              ✓ Registrado ({formatDate(fechaAplicado || '')})
+                              Registrado ({formatDate(fechaAplicado || '')})
                             </span>
                           ) : (
                             <span className="badge warning" style={{ fontSize: '0.725rem' }}>
-                              ⏳ Pendiente este mes
+                              Pendiente este mes
                             </span>
                           )}
                         </td>
@@ -736,7 +736,7 @@ export function PersonalPage() {
                                 onClick={() => aplicarGastoRecurrenteAlMes(r.id, selectedMonth)}
                                 title="Aplicar y registrar este gasto al mes seleccionado"
                               >
-                                ⚡ Aplicar a este mes
+                                Aplicar a este mes
                               </button>
                             )}
                             <button
@@ -757,7 +757,7 @@ export function PersonalPage() {
                               }}
                               title="Eliminar plantilla"
                             >
-                              ✕
+                              Eliminar
                             </button>
                           </div>
                         </td>
@@ -835,7 +835,7 @@ export function PersonalPage() {
                           onClick={() => deleteIngreso(ing.id)}
                           title="Eliminar ingreso"
                         >
-                          ✕
+                          Eliminar
                         </button>
                       </td>
                     </tr>
@@ -857,7 +857,7 @@ export function PersonalPage() {
       {/* ========================================================================= */}
       {/* MODAL REGISTRAR GASTO PERSONAL */}
       {/* ========================================================================= */}
-      <Modal isOpen={modalGastoOpen} onClose={() => setModalGastoOpen(false)} title="🎉 Registrar Gasto Personal / Ocio">
+      <Modal isOpen={modalGastoOpen} onClose={() => setModalGastoOpen(false)} title="Registrar Gasto Personal / Ocio">
         <form onSubmit={handleAddGastoPersonal} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
           <div className="form-group">
             <label>Categoría del Gasto *</label>
@@ -866,16 +866,16 @@ export function PersonalPage() {
               value={catGasto}
               onChange={(e) => setCatGasto(e.target.value as typeof catGasto)}
             >
-              <option value="PARQUEADERO">🅿️ Parqueadero / Estacionamiento</option>
-              <option value="CELULAR">📱 Servicio de Celular / Plan Móvil</option>
-              <option value="GASOLINA">⛽ Gasolina / Combustible / Tanqueo</option>
-              <option value="SUSCRIPCIONES">📺 Suscripciones (Netflix, Crunchyroll, Spotify, Gym, iCloud)</option>
-              <option value="RESTAURANTES_COMIDAS_FUERA">🍔 Salidas a comer / Restaurantes / Domicilios</option>
-              <option value="PARTIDOS_OCIO_EVENTOS">⚽ Partidos / Canchas sintéticas / Fútbol / Eventos / Cine</option>
-              <option value="REGALOS">🎁 Regalos (Cumpleaños, aniversarios, detalles)</option>
-              <option value="ROPA_CUIDADO">👕 Ropa, Peluquería & Cuidado Personal</option>
-              <option value="TRANSPORTE">🚕 Taxi / Uber / Pasajes</option>
-              <option value="SEGUROS_SALUD">🛡️ Seguro de Vida / Medicina Prepagada / Farmacia</option>
+              <option value="PARQUEADERO">Parqueadero / Estacionamiento</option>
+              <option value="CELULAR">Servicio de Celular / Plan Móvil</option>
+              <option value="GASOLINA">Gasolina / Combustible / Tanqueo</option>
+              <option value="SUSCRIPCIONES">Suscripciones (Netflix, Crunchyroll, Spotify, Gym, iCloud)</option>
+              <option value="RESTAURANTES_COMIDAS_FUERA">Salidas a comer / Restaurantes / Domicilios</option>
+              <option value="PARTIDOS_OCIO_EVENTOS">Partidos / Canchas sintéticas / Fútbol / Eventos / Cine</option>
+              <option value="REGALOS">Regalos (Cumpleaños, aniversarios, detalles)</option>
+              <option value="ROPA_CUIDADO">Ropa, Peluquería & Cuidado Personal</option>
+              <option value="TRANSPORTE">Taxi / Uber / Pasajes</option>
+              <option value="SEGUROS_SALUD">Seguro de Vida / Medicina Prepagada / Farmacia</option>
               <option value="OTROS">Otros Gastos Personales</option>
             </select>
           </div>
@@ -934,19 +934,19 @@ export function PersonalPage() {
                 onChange={(e) => setMedioPagoSeleccionado(e.target.value)}
               >
                 {state.tarjetas.length > 0 && (
-                  <optgroup label="💳 Tarjetas de Crédito (1 Cuota - Mes a Mes)">
+                  <optgroup label="Tarjetas de Crédito (1 Cuota - Mes a Mes)">
                     {state.tarjetas.map((t) => (
                       <option key={t.id} value={`tarjeta:${t.id}`}>
-                        💳 {t.nombre} (•••• {t.ultimos4Digitos}) - 1 Cuota
+                        {t.nombre} (•••• {t.ultimos4Digitos}) - 1 Cuota
                       </option>
                     ))}
                   </optgroup>
                 )}
                 {state.cuentas.length > 0 && (
-                  <optgroup label="🏦 Cuentas de Ahorros / Billeteras">
+                  <optgroup label="Cuentas de Ahorros / Billeteras">
                     {state.cuentas.map((c) => (
                       <option key={c.id} value={`cuenta:${c.id}`}>
-                        🏦 {c.nombre} (Saldo: {formatMoney(c.saldo)})
+                        {c.nombre} (Saldo: {formatMoney(c.saldo)})
                       </option>
                     ))}
                   </optgroup>
@@ -957,7 +957,7 @@ export function PersonalPage() {
 
           {medioPagoSeleccionado.startsWith('tarjeta:') && (
             <div className="banner info" style={{ fontSize: '0.8rem', padding: '0.6rem 0.85rem' }}>
-              ℹ️ Pagado con <strong>Tarjeta a 1 cuota</strong>: Se incluirá en tus gastos del mes y en el extracto de tu tarjeta sin restar saldo bancario de inmediato.
+              Pagado con <strong>Tarjeta a 1 cuota</strong>: Se incluirá en tus gastos del mes y en el extracto de tu tarjeta sin restar saldo bancario de inmediato.
             </div>
           )}
 
@@ -978,7 +978,7 @@ export function PersonalPage() {
       <Modal
         isOpen={modalRecurrenteOpen}
         onClose={() => setModalRecurrenteOpen(false)}
-        title="🔁 Configurar Gasto Fijo / Suscripción Mensual"
+        title="Configurar Gasto Fijo / Suscripción Mensual"
       >
         <form onSubmit={handleAddRecurrente} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
           <div className="form-group">
@@ -986,7 +986,7 @@ export function PersonalPage() {
             <input
               type="text"
               className="form-input"
-              placeholder="Ej: 🅿️ Parqueadero mensual, 📱 Plan Celular Claro, 🎬 Netflix 4K, 🍙 Crunchyroll Fan"
+              placeholder="Ej: Parqueadero mensual, Plan Celular Claro, Netflix 4K, Crunchyroll Fan"
               value={nombreRecurrente}
               onChange={(e) => setNombreRecurrente(e.target.value)}
               required
@@ -1001,11 +1001,11 @@ export function PersonalPage() {
                 value={catRecurrente}
                 onChange={(e) => setCatRecurrente(e.target.value as typeof catRecurrente)}
               >
-                <option value="PARQUEADERO">🅿️ Parqueadero / Estacionamiento</option>
-                <option value="CELULAR">📱 Plan de Celular</option>
-                <option value="SUSCRIPCIONES">📺 Suscripción Streaming / Apps (Netflix, Crunchyroll, Spotify)</option>
-                <option value="GASOLINA">⛽ Gasolina Fija</option>
-                <option value="SEGUROS_SALUD">🛡️ Seguro / Salud</option>
+                <option value="PARQUEADERO">Parqueadero / Estacionamiento</option>
+                <option value="CELULAR">Plan de Celular</option>
+                <option value="SUSCRIPCIONES">Suscripción Streaming / Apps (Netflix, Crunchyroll, Spotify)</option>
+                <option value="GASOLINA">Gasolina Fija</option>
+                <option value="SEGUROS_SALUD">Seguro / Salud</option>
                 <option value="OTROS">Otro Gasto Fijo</option>
               </select>
             </div>
@@ -1046,19 +1046,19 @@ export function PersonalPage() {
                 onChange={(e) => setMedioPagoRecurrente(e.target.value)}
               >
                 {state.tarjetas.length > 0 && (
-                  <optgroup label="💳 Tarjetas de Crédito (1 Cuota)">
+                  <optgroup label="Tarjetas de Crédito (1 Cuota)">
                     {state.tarjetas.map((t) => (
                       <option key={t.id} value={`tarjeta:${t.id}`}>
-                        💳 {t.nombre} (•••• {t.ultimos4Digitos}) - 1 Cuota
+                        {t.nombre} (•••• {t.ultimos4Digitos}) - 1 Cuota
                       </option>
                     ))}
                   </optgroup>
                 )}
                 {state.cuentas.length > 0 && (
-                  <optgroup label="🏦 Cuentas Bancarias / Débito">
+                  <optgroup label="Cuentas Bancarias / Débito">
                     {state.cuentas.map((c) => (
                       <option key={c.id} value={`cuenta:${c.id}`}>
-                        🏦 {c.nombre} (Saldo: {formatMoney(c.saldo)})
+                        {c.nombre} (Saldo: {formatMoney(c.saldo)})
                       </option>
                     ))}
                   </optgroup>
@@ -1092,7 +1092,7 @@ export function PersonalPage() {
       {/* ========================================================================= */}
       {/* MODAL REGISTRAR INGRESO */}
       {/* ========================================================================= */}
-      <Modal isOpen={modalIngresoOpen} onClose={() => setModalIngresoOpen(false)} title="💰 Registrar Ingreso o Nómina">
+      <Modal isOpen={modalIngresoOpen} onClose={() => setModalIngresoOpen(false)} title="Registrar Ingreso o Nómina">
         <form onSubmit={handleAddIngreso} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
           <div className="form-group">
             <label>Tipo de Entrada *</label>
@@ -1109,14 +1109,14 @@ export function PersonalPage() {
                 }
               }}
             >
-              <option value="NOMINA">💼 Nómina / Sueldo Fijo</option>
-              <option value="APORTE_HERMANO">👦 Aporte / Envío de Hermano (Almuerzos & Gastos)</option>
-              <option value="APORTE_MAMA">👩‍👧 Aporte / Apoyo de Mamá (Comida / Hogar)</option>
-              <option value="HORAS_EXTRAS">⏰ Horas Extras / Recargos</option>
-              <option value="BONIFICACION">🌟 Bonificación</option>
-              <option value="FREELANCE">💻 Trabajo Independiente / Freelance</option>
-              <option value="RENDIMIENTOS">📈 Rendimientos Financieros</option>
-              <option value="REGALO">🎁 Regalo de Dinero</option>
+              <option value="NOMINA">Nómina / Sueldo Fijo</option>
+              <option value="APORTE_HERMANO">Aporte / Envío de Hermano (Almuerzos & Gastos)</option>
+              <option value="APORTE_MAMA">Aporte / Apoyo de Mamá (Comida / Hogar)</option>
+              <option value="HORAS_EXTRAS">Horas Extras / Recargos</option>
+              <option value="BONIFICACION">Bonificación</option>
+              <option value="FREELANCE">Trabajo Independiente / Freelance</option>
+              <option value="RENDIMIENTOS">Rendimientos Financieros</option>
+              <option value="REGALO">Regalo de Dinero</option>
               <option value="OTRO">Otro Ingreso</option>
             </select>
           </div>

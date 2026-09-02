@@ -7,7 +7,7 @@ import {
   generarTablaAmortizacion,
   type DetalleTablaAmortizacion,
 } from '../utils/financialCalculations'
-import { formatMoney, formatDate, formatMonthYear, cleanDateText } from '../utils/formatters'
+import { formatMoney, formatDate, formatMonthYear, cleanDateText, getLocalTodayISO } from '../utils/formatters'
 import type { FranquiciaTarjeta, CompraCuota, TarjetaCredito } from '../types/finance'
 
 export function getCardBrandInfo(tarjeta?: TarjetaCredito) {
@@ -19,7 +19,7 @@ export function getCardBrandInfo(tarjeta?: TarjetaCredito) {
 
   if (isNu) {
     return {
-      icon: '🟣',
+      icon: '',
       name: tarjeta?.nombre || 'Nu Gold',
       color: '#9333ea',
       bgColor: 'rgba(147, 51, 234, 0.14)',
@@ -31,7 +31,7 @@ export function getCardBrandInfo(tarjeta?: TarjetaCredito) {
 
   if (isBancolombia) {
     return {
-      icon: '🏦',
+      icon: '',
       name: tarjeta?.nombre || 'Bancolombia',
       color: '#f59e0b',
       bgColor: 'rgba(245, 158, 11, 0.14)',
@@ -43,7 +43,7 @@ export function getCardBrandInfo(tarjeta?: TarjetaCredito) {
 
   const customColor = tarjeta?.color || '#3b82f6'
   return {
-    icon: '💳',
+    icon: '',
     name: tarjeta?.nombre || 'Tarjeta',
     color: customColor,
     bgColor: `${customColor}20`,
@@ -176,18 +176,18 @@ export function TarjetasPage() {
           fecha: g.fecha,
           categoria:
             g.categoria === 'CELULAR'
-              ? '📱 Celular'
+              ? 'Celular'
               : g.categoria === 'GASOLINA'
-              ? '⛽ Gasolina'
+              ? 'Gasolina'
               : g.categoria === 'SUSCRIPCIONES'
-              ? '📺 Suscripción'
+              ? 'Suscripción'
               : g.categoria === 'PARQUEADERO'
-              ? '🅿️ Parqueadero'
+              ? 'Parqueadero'
               : g.categoria === 'RESTAURANTES_COMIDAS_FUERA'
-              ? '🍔 Restaurante'
+              ? 'Restaurante'
               : g.categoria === 'TRANSPORTE'
-              ? '🚕 Transporte'
-              : '🎉 Personal',
+              ? 'Transporte'
+              : 'Personal',
           descripcion: g.descripcion,
           monto: g.monto,
           tarjetaId: g.tarjetaId || defaultTarjetaId,
@@ -205,7 +205,7 @@ export function TarjetasPage() {
         items.push({
           id: a.id,
           fecha: a.fecha,
-          categoria: '🍲 Comida',
+          categoria: 'Comida',
           descripcion: a.descripcion,
           monto: a.monto,
           tarjetaId: a.tarjetaId || defaultTarjetaId,
@@ -223,7 +223,7 @@ export function TarjetasPage() {
         items.push({
           id: c.id,
           fecha: c.fecha,
-          categoria: '🏠 Hogar',
+          categoria: 'Hogar',
           descripcion: c.descripcion,
           monto: c.monto,
           tarjetaId: c.tarjetaId || defaultTarjetaId,
@@ -231,8 +231,29 @@ export function TarjetasPage() {
         })
       })
 
+    ;(state.servicios || [])
+      .filter((s) => {
+        const matchFecha =
+          filtroPeriodo1Cuota === 'TODOS' ||
+          s.periodo === selectedMonth ||
+          s.fechaVencimiento.startsWith(selectedMonth)
+        const matchTarjeta = Boolean(s.tarjetaId) || s.metodoPago === 'TARJETA_CREDITO'
+        return matchFecha && matchTarjeta
+      })
+      .forEach((s) => {
+        items.push({
+          id: s.id,
+          fecha: s.fechaPago || s.fechaVencimiento,
+          categoria: `Servicio: ${s.tipo}`,
+          descripcion: s.nombre,
+          monto: s.monto,
+          tarjetaId: s.tarjetaId || defaultTarjetaId,
+          tipoOrigen: 'SERVICIO',
+        })
+      })
+
     return items.sort((a, b) => b.fecha.localeCompare(a.fecha))
-  }, [state.gastosPersonales, state.alimentacion, state.comprasHogar, state.tarjetas, selectedMonth, filtroPeriodo1Cuota])
+  }, [state.gastosPersonales, state.alimentacion, state.comprasHogar, state.servicios, state.tarjetas, selectedMonth, filtroPeriodo1Cuota])
 
   // Form State Tarjeta
   const [nombreTc, setNombreTc] = useState('')
@@ -250,7 +271,7 @@ export function TarjetasPage() {
   const [descCompra, setDescCompra] = useState('')
   const [comercioCompra, setComercioCompra] = useState('')
   const [montoCompra, setMontoCompra] = useState('')
-  const [fechaCompra, setFechaCompra] = useState(new Date().toISOString().slice(0, 10))
+  const [fechaCompra, setFechaCompra] = useState(getLocalTodayISO())
   const [cuotasCompra, setCuotasCompra] = useState('12')
   const [tasaCompra, setTasaCompra] = useState('2.1')
   const [mesInicioCobro, setMesInicioCobro] = useState(selectedMonth)
@@ -381,7 +402,7 @@ export function TarjetasPage() {
             }}
             title="Restablece los extractos y compras para realizar tu prueba"
           >
-            🧹 Limpiar Tarjetas
+            Limpiar Tarjetas
           </button>
           <button type="button" className="btn secondary" onClick={() => setModalTarjetaOpen(true)}>
             + Agregar Tarjeta
@@ -400,7 +421,7 @@ export function TarjetasPage() {
           onClick={() => setTarjetaSeleccionadaTab('TODAS')}
           style={{ fontWeight: 700 }}
         >
-          🌐 Vista General ({state.tarjetas.length} Tarjetas)
+          Vista General ({state.tarjetas.length} Tarjetas)
         </button>
         {state.tarjetas.map((t) => {
           const isNu = t.banco.toLowerCase().includes('nu') || t.nombre.toLowerCase().includes('nu')
@@ -415,7 +436,7 @@ export function TarjetasPage() {
                 color: tarjetaSeleccionadaTab === t.id ? (isNu ? '#a855f7' : '#eab308') : undefined,
               }}
             >
-              {isNu ? '🟣' : '🏦'} {t.nombre} (•••• {t.ultimos4Digitos})
+              {t.nombre} (•••• {t.ultimos4Digitos})
             </button>
           )
         })}
@@ -552,7 +573,7 @@ export function TarjetasPage() {
                         </div>
 
                         <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.7rem', marginTop: '0.4rem', opacity: 0.9 }}>
-                          <span>📅 Límite: {t.ultimoExtracto?.pagarAntesDe ? cleanDateText(t.ultimoExtracto.pagarAntesDe) : `Día ${t.diaLimitePago}`}</span>
+                          <span>Límite: {t.ultimoExtracto?.pagarAntesDe ? cleanDateText(t.ultimoExtracto.pagarAntesDe) : `Día ${t.diaLimitePago}`}</span>
                           <span>Cupo Libre: <strong>{formatMoney(disponibleTc)}</strong></span>
                         </div>
                       </div>
@@ -560,7 +581,7 @@ export function TarjetasPage() {
 
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0 0.25rem' }}>
                       <span style={{ fontSize: '0.75rem', color: 'var(--color-primary)' }}>
-                        👉 Clic para ver extracto y diferidos
+                        Clic para ver extracto y diferidos
                       </span>
                       <button
                         type="button"
@@ -587,7 +608,7 @@ export function TarjetasPage() {
             <div className="panel-header">
               <div>
                 <h2 className="panel-title">
-                  📑 Estado de Facturación y Extractos del Mes ({formatMonthYear(selectedMonth)})
+                  Estado de Facturación y Extractos del Mes ({formatMonthYear(selectedMonth)})
                 </h2>
                 <span style={{ fontSize: '0.8rem', color: 'var(--color-text-muted)' }}>
                   Comparativo exacto de cupo, pago mínimo obligatorio, pago total (0 intereses) y fecha límite.
@@ -603,8 +624,8 @@ export function TarjetasPage() {
                     <th>Cupo Total / Libre</th>
                     <th>Consumos 1 Cuota</th>
                     <th>Cuotas Diferidas</th>
-                    <th>🟡 Pago Mínimo</th>
-                    <th>🟢 Pago Total (0 Intereses)</th>
+                    <th>Pago Mínimo</th>
+                    <th>Pago Total (0 Intereses)</th>
                     <th>Pagar Antes De</th>
                     <th style={{ textAlign: 'right' }}>Acción</th>
                   </tr>
@@ -635,9 +656,6 @@ export function TarjetasPage() {
                       <tr key={t.id}>
                         <td>
                           <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                            <span style={{ fontSize: '1.2rem' }}>
-                              {t.banco.toLowerCase().includes('nu') ? '🟣' : '💳'}
-                            </span>
                             <div>
                               <strong>{t.nombre}</strong>
                               <span style={{ display: 'block', fontSize: '0.75rem', color: 'var(--color-text-muted)' }}>
@@ -704,7 +722,7 @@ export function TarjetasPage() {
                               setTipoPagoSeleccionado('TOTAL')
                             }}
                           >
-                            💳 Pagar Factura
+                            Pagar Factura
                           </button>
                         </td>
                       </tr>
@@ -736,24 +754,52 @@ export function TarjetasPage() {
 
         const comprasCuotasTarjeta = state.comprasCuotas.filter((c) => c.tarjetaId === tarjeta.id)
         
-        // Obtener todos los consumos a 1 cuota asociados a esta tarjeta (sin restricción de fecha para el extracto)
+        // Obtener todos los consumos a 1 cuota asociados a esta tarjeta
+        const defaultTcId = state.tarjetas[0]?.id
+        const isFirstCard = tarjeta.id === defaultTcId
+
         const consumos1CuotaTarjeta = [
-          ...state.gastosPersonales.filter(
-            (g) =>
-              g.tarjetaId === tarjeta.id ||
-              (isNu && g.id.includes('nu')) ||
-              (!isNu && g.id.includes('bc') && (g.metodoPago === 'TARJETA_CREDITO' || !g.cuentaId))
-          ),
-          ...state.alimentacion.filter((a) => a.tarjetaId === tarjeta.id),
-          ...state.comprasHogar.filter((c) => c.tarjetaId === tarjeta.id),
-        ].map((item) => ({
-          id: item.id,
-          fecha: item.fecha,
-          categoria: 'categoria' in item ? String(item.categoria) : 'General',
-          descripcion: item.descripcion,
-          monto: item.monto,
-          tarjetaId: tarjeta.id,
-        }))
+          ...(state.gastosPersonales || [])
+            .filter((g) => g.tarjetaId === tarjeta.id || (!g.tarjetaId && g.metodoPago === 'TARJETA_CREDITO' && isFirstCard))
+            .map((g) => ({
+              id: g.id,
+              fecha: g.fecha,
+              categoria: g.categoria,
+              descripcion: g.descripcion,
+              monto: g.monto,
+              tarjetaId: tarjeta.id,
+            })),
+          ...(state.alimentacion || [])
+            .filter((a) => a.tarjetaId === tarjeta.id || (!a.tarjetaId && a.metodoPago === 'TARJETA_CREDITO' && isFirstCard))
+            .map((a) => ({
+              id: a.id,
+              fecha: a.fecha,
+              categoria: a.tipoComida,
+              descripcion: a.descripcion,
+              monto: a.monto,
+              tarjetaId: tarjeta.id,
+            })),
+          ...(state.comprasHogar || [])
+            .filter((c) => c.tarjetaId === tarjeta.id || (!c.tarjetaId && c.metodoPago === 'TARJETA_CREDITO' && isFirstCard))
+            .map((c) => ({
+              id: c.id,
+              fecha: c.fecha,
+              categoria: c.categoria,
+              descripcion: c.descripcion,
+              monto: c.monto,
+              tarjetaId: tarjeta.id,
+            })),
+          ...(state.servicios || [])
+            .filter((s) => s.tarjetaId === tarjeta.id || (!s.tarjetaId && s.metodoPago === 'TARJETA_CREDITO' && isFirstCard))
+            .map((s) => ({
+              id: s.id,
+              fecha: s.fechaPago || s.fechaVencimiento,
+              categoria: s.tipo,
+              descripcion: s.nombre,
+              monto: s.monto,
+              tarjetaId: tarjeta.id,
+            })),
+        ]
 
         const totalCuotasMesTc = comprasCuotasTarjeta
           .filter((c) => c.estado === 'ACTIVA' && c.cuotasPagadas < c.cuotasTotales)
@@ -804,8 +850,8 @@ export function TarjetasPage() {
                   </div>
 
                   <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.75rem', opacity: 0.9 }}>
-                    <span>📅 Corte: Día {tarjeta.diaCorte}</span>
-                    <span>⏰ Límite: {ext?.pagarAntesDe ? cleanDateText(ext.pagarAntesDe) : `Día ${tarjeta.diaLimitePago}`}</span>
+                    <span>Corte: Día {tarjeta.diaCorte}</span>
+                    <span>Límite: {ext?.pagarAntesDe ? cleanDateText(ext.pagarAntesDe) : `Día ${tarjeta.diaLimitePago}`}</span>
                   </div>
                 </div>
               </div>
@@ -825,7 +871,7 @@ export function TarjetasPage() {
                     justifyContent: 'space-between',
                   }}
                 >
-                  <span>{isNu ? '🟣 Tarjeta Nu Colombia' : '🏦 Tarjeta Bancolombia'}</span>
+                  <span>{isNu ? 'Tarjeta Nu Colombia' : 'Tarjeta Bancolombia'}</span>
                   <span style={{ fontSize: '0.8rem', opacity: 0.9 }}>
                     Periodo: {ext?.periodoFacturado || 'Sin extracto cargado'}
                   </span>
@@ -870,15 +916,15 @@ export function TarjetasPage() {
 
                   <div style={{ gridColumn: '1 / -1', paddingTop: '0.65rem', borderTop: '1px solid var(--color-border)', display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.78rem', color: 'var(--color-text-muted)', flexWrap: 'wrap', gap: '0.5rem' }}>
-                      <span>🛍️ Consumos 1 Cuota: <strong style={{ color: 'var(--color-text-main)' }}>{formatMoney(totalConsumos1CuotaTc)}</strong></span>
-                      <span>💳 Cuotas Diferidas: <strong style={{ color: 'var(--color-text-main)' }}>{formatMoney(totalCuotasMesTc)}</strong></span>
-                      <span>⏰ Límite: <strong style={{ color: 'var(--color-expense)' }}>{ext?.pagarAntesDe ? cleanDateText(ext.pagarAntesDe) : (isNu ? '04 SEP 2026' : 'sep. 02, 2026')}</strong></span>
+                      <span>Consumos 1 Cuota: <strong style={{ color: 'var(--color-text-main)' }}>{formatMoney(totalConsumos1CuotaTc)}</strong></span>
+                      <span>Cuotas Diferidas: <strong style={{ color: 'var(--color-text-main)' }}>{formatMoney(totalCuotasMesTc)}</strong></span>
+                      <span>Límite: <strong style={{ color: 'var(--color-expense)' }}>{ext?.pagarAntesDe ? cleanDateText(ext.pagarAntesDe) : (isNu ? '04 SEP 2026' : 'sep. 02, 2026')}</strong></span>
                     </div>
                   </div>
 
                   <div style={{ gridColumn: '1 / -1', paddingTop: '0.5rem', borderTop: '1px solid var(--color-border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                     <span style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)' }}>
-                      💡 Compras realizadas antes del corte ({tarjeta.diaCorte}) se pagan en esta fecha límite.
+                      Compras realizadas antes del corte ({tarjeta.diaCorte}) se pagan en esta fecha límite.
                     </span>
                     <button
                       type="button"
@@ -893,7 +939,7 @@ export function TarjetasPage() {
                         setTipoPagoSeleccionado('TOTAL')
                       }}
                     >
-                      💳 Pagar Factura
+                      Pagar Factura
                     </button>
                   </div>
                 </div>
@@ -905,7 +951,7 @@ export function TarjetasPage() {
               <div className="panel-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.75rem' }}>
                 <div>
                   <h3 className="panel-title" style={{ fontSize: '1.1rem' }}>
-                    📋 Compras Diferidas a Cuotas ({comprasCuotasTarjeta.length} registradas)
+                    Compras Diferidas a Cuotas ({comprasCuotasTarjeta.length} registradas)
                   </h3>
                   <span style={{ fontSize: '0.8rem', color: 'var(--color-text-muted)' }}>
                     Compras financiadas a plazos facturadas a {tarjeta.nombre}.
@@ -967,7 +1013,7 @@ export function TarjetasPage() {
                             <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.75rem', marginBottom: '2px' }}>
                               <span>
                                 {esPagada
-                                  ? `✓ ${compra.cuotasTotales} de ${compra.cuotasTotales}`
+                                  ? `Cuota ${compra.cuotasTotales} de ${compra.cuotasTotales}`
                                   : `${cuotaMostrada} de ${compra.cuotasTotales}`}
                               </span>
                               <strong>{progresoPct}%</strong>
@@ -1001,7 +1047,7 @@ export function TarjetasPage() {
                                 onClick={() => handleOpenEditCompra(compra)}
                                 title="Editar nombre, cuotas pagadas y detalles de esta compra"
                               >
-                                ✏️ Editar
+                                Editar
                               </button>
                               <button
                                 type="button"
@@ -1009,7 +1055,7 @@ export function TarjetasPage() {
                                 onClick={() => setModalAmortizacion(compra)}
                                 title="Ver tabla de amortización"
                               >
-                                📊 Tabla
+                                Tabla
                               </button>
                               {compra.estado === 'ACTIVA' && (
                                 <>
@@ -1019,7 +1065,7 @@ export function TarjetasPage() {
                                     onClick={() => setModalPagarCuota(compra)}
                                     title="Pagar cuota mensual individual"
                                   >
-                                    ✓ Pagar Cuota
+                                    Pagar Cuota
                                   </button>
                                   <button
                                     type="button"
@@ -1047,17 +1093,17 @@ export function TarjetasPage() {
                                   title="Revertir el último pago de cuota y reembolsar a la cuenta de ahorros"
                                   style={{ color: 'var(--color-warning-text)' }}
                                 >
-                                  ⏪ Revertir
+                                  Revertir
                                 </button>
                               )}
                               <button
                                 type="button"
-                                className="btn ghost sm icon-only"
+                                className="btn ghost sm"
                                 onClick={() => deleteCompraCuota(compra.id)}
                                 title="Eliminar compra"
                                 aria-label="Eliminar"
                               >
-                                ✕
+                                Eliminar
                               </button>
                             </div>
                           </td>
@@ -1067,7 +1113,6 @@ export function TarjetasPage() {
                     {comprasCuotasTarjeta.length === 0 && (
                       <tr>
                         <td colSpan={7} style={{ textAlign: 'center', padding: '2.5rem 1rem', color: 'var(--color-text-muted)' }}>
-                          <div style={{ fontSize: '2rem', marginBottom: '0.5rem' }}>📑</div>
                           <p style={{ fontWeight: 600, marginBottom: '0.25rem' }}>
                             Aún no hay compras a cuotas registradas en esta tarjeta.
                           </p>
@@ -1087,7 +1132,7 @@ export function TarjetasPage() {
               <div className="panel-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.75rem' }}>
                 <div>
                   <h3 className="panel-title" style={{ fontSize: '1.1rem' }}>
-                    💳 Consumos a 1 Cuota ({consumos1CuotaTarjeta.length} movimientos)
+                    Consumos a 1 Cuota ({consumos1CuotaTarjeta.length} movimientos)
                   </h3>
                   <span style={{ fontSize: '0.8rem', color: 'var(--color-text-muted)' }}>
                     Gastos mensuales y compras corrientes facturadas a 1 sola cuota.
@@ -1132,7 +1177,6 @@ export function TarjetasPage() {
                     {consumos1CuotaTarjeta.length === 0 && (
                       <tr>
                         <td colSpan={4} style={{ textAlign: 'center', padding: '2.5rem 1rem', color: 'var(--color-text-muted)' }}>
-                          <div style={{ fontSize: '2rem', marginBottom: '0.5rem' }}>🛒</div>
                           <p style={{ fontWeight: 600, marginBottom: '0.25rem' }}>
                             No hay consumos a 1 cuota registrados para esta tarjeta.
                           </p>
@@ -1160,7 +1204,7 @@ export function TarjetasPage() {
             <div className="panel-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.75rem' }}>
               <div>
                 <h2 className="panel-title">
-                  💳 Todos los Consumos a 1 Cuota con Tarjetas de Crédito
+                  Todos los Consumos a 1 Cuota con Tarjetas de Crédito
                 </h2>
                 <span style={{ fontSize: '0.8rem', color: 'var(--color-text-muted)' }}>
                   Servicios mensuales, suscripciones y compras a 1 cuota de todas las tarjetas.
@@ -1174,7 +1218,7 @@ export function TarjetasPage() {
                     onClick={() => setFiltroPeriodo1Cuota('MES_ACTUAL')}
                     style={{ fontSize: '0.775rem', padding: '0.35rem 0.75rem' }}
                   >
-                    📅 {formatMonthYear(selectedMonth)}
+                    {formatMonthYear(selectedMonth)}
                   </button>
                   <button
                     type="button"
@@ -1182,7 +1226,7 @@ export function TarjetasPage() {
                     onClick={() => setFiltroPeriodo1Cuota('TODOS')}
                     style={{ fontSize: '0.775rem', padding: '0.35rem 0.75rem' }}
                   >
-                    📋 Todos
+                    Todos
                   </button>
                 </div>
                 <span className="badge credit" style={{ fontSize: '0.85rem' }}>
@@ -1220,7 +1264,7 @@ export function TarjetasPage() {
                         </td>
                         <td>
                           <span className="badge credit" style={{ fontSize: '0.725rem' }}>
-                            {tarjeta?.banco.toLowerCase().includes('nu') ? '🟣' : '💳'} {tarjeta?.nombre || 'Tarjeta de Crédito'}
+                            {tarjeta?.nombre || 'Tarjeta de Crédito'}
                           </span>
                         </td>
                         <td style={{ textAlign: 'right', fontWeight: 600, color: 'var(--color-credit)' }}>
@@ -1334,7 +1378,7 @@ export function TarjetasPage() {
                           <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.75rem', marginBottom: '3px' }}>
                             <span style={{ fontWeight: 600, color: esPagada ? '#10b981' : brand.textColor }}>
                               {esPagada
-                                ? `✓ Cuota ${compra.cuotasTotales} de ${compra.cuotasTotales}`
+                                ? `Cuota ${compra.cuotasTotales} de ${compra.cuotasTotales}`
                                 : `Cuota ${cuotaMostrada} de ${compra.cuotasTotales}`}
                             </span>
                             <strong style={{ color: esPagada ? '#10b981' : brand.textColor }}>{progresoPct}%</strong>
@@ -1386,7 +1430,7 @@ export function TarjetasPage() {
                               onClick={() => handleOpenEditCompra(compra)}
                               title="Editar nombre y detalles de esta compra diferida"
                             >
-                              ✏️ Editar
+                              Editar
                             </button>
                             <button
                               type="button"
@@ -1394,7 +1438,7 @@ export function TarjetasPage() {
                               onClick={() => setModalAmortizacion(compra)}
                               title="Ver tabla de amortización con intereses"
                             >
-                              📊 Tabla
+                              Tabla
                             </button>
                             {compra.estado === 'ACTIVA' && (
                               <button
@@ -1403,17 +1447,17 @@ export function TarjetasPage() {
                                 onClick={() => setModalPagarCuota(compra)}
                                 title="Pagar cuota mensual"
                               >
-                                ✓ Pagar
+                                Pagar
                               </button>
                             )}
                             <button
                               type="button"
-                              className="btn ghost sm icon-only"
+                              className="btn ghost sm"
                               onClick={() => deleteCompraCuota(compra.id)}
                               title="Eliminar compra"
                               aria-label="Eliminar"
                             >
-                              ✕
+                              Eliminar
                             </button>
                           </div>
                         </td>
@@ -1423,7 +1467,6 @@ export function TarjetasPage() {
                   {state.comprasCuotas.length === 0 && (
                     <tr>
                       <td colSpan={8} style={{ textAlign: 'center', padding: '3rem 1.5rem', color: 'var(--color-text-muted)' }}>
-                        <div style={{ fontSize: '2.5rem', marginBottom: '0.5rem' }}>📊</div>
                         <p style={{ fontSize: '1rem', fontWeight: 600, color: 'var(--color-text-main)', marginBottom: '0.5rem' }}>
                           No hay compras diferidas activas.
                         </p>
@@ -1441,7 +1484,7 @@ export function TarjetasPage() {
       )}
 
       {/* MODAL NUEVA TARJETA */}
-      <Modal isOpen={modalTarjetaOpen} onClose={() => setModalTarjetaOpen(false)} title="💳 Agregar Tarjeta de Crédito">
+      <Modal isOpen={modalTarjetaOpen} onClose={() => setModalTarjetaOpen(false)} title="Agregar Tarjeta de Crédito">
         <form onSubmit={handleAddTarjeta} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
           <div className="form-grid">
             <div className="form-group">
@@ -1547,7 +1590,7 @@ export function TarjetasPage() {
       </Modal>
 
       {/* MODAL REGISTRAR COMPRA A CUOTAS */}
-      <Modal isOpen={modalCompraOpen} onClose={() => setModalCompraOpen(false)} title="🛍️ Registrar Compra a Cuotas">
+      <Modal isOpen={modalCompraOpen} onClose={() => setModalCompraOpen(false)} title="Registrar Compra a Cuotas">
         <form onSubmit={handleAddCompraCuota} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
           <div className="form-grid">
             <div className="form-group">
@@ -1641,7 +1684,7 @@ export function TarjetasPage() {
 
           {cuotaSimulada > 0 && (
             <div className="banner info" style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem' }}>
-              <strong>💡 Proyección de la Cuota:</strong>
+              <strong>Proyección de la Cuota:</strong>
               <span>
                 Pagarás <strong>{cuotasCompra} cuotas mensuales</strong> de aproximadamente{' '}
                 <strong style={{ fontSize: '1.05rem', color: 'var(--color-primary-light)' }}>
@@ -1668,7 +1711,7 @@ export function TarjetasPage() {
         <Modal
           isOpen={Boolean(modalPagarTarjeta)}
           onClose={() => setModalPagarTarjeta(null)}
-          title={`💳 Pagar Extracto: ${modalPagarTarjeta.tarjeta.nombre}`}
+          title={`Pagar Extracto: ${modalPagarTarjeta.tarjeta.nombre}`}
           maxWidth="560px"
         >
           <form onSubmit={handleConfirmarPagoTarjeta} style={{ display: 'flex', flexDirection: 'column', gap: '1.15rem' }}>
@@ -1701,7 +1744,7 @@ export function TarjetasPage() {
                 <div style={{ flex: 1 }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                     <strong style={{ color: 'var(--color-income-text)', fontSize: '0.925rem' }}>
-                      🟢 Pago Total del Mes (0 Intereses)
+                      Pago Total del Mes (0 Intereses)
                     </strong>
                     <span style={{ fontWeight: 800, fontSize: '1.1rem', color: 'var(--color-income-text)' }}>
                       {formatMoney(modalPagarTarjeta.pagoTotal)}
@@ -1736,7 +1779,7 @@ export function TarjetasPage() {
                 <div style={{ flex: 1 }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                     <strong style={{ color: 'var(--color-warning-text)', fontSize: '0.925rem' }}>
-                      🟡 Pago Mínimo Obligatorio
+                      Pago Mínimo Obligatorio
                     </strong>
                     <span style={{ fontWeight: 800, fontSize: '1.1rem', color: 'var(--color-warning-text)' }}>
                       {formatMoney(modalPagarTarjeta.pagoMinimo)}
@@ -1770,7 +1813,7 @@ export function TarjetasPage() {
                 />
                 <div style={{ flex: 1 }}>
                   <strong style={{ color: 'var(--color-primary-light)', fontSize: '0.925rem' }}>
-                    ✍️ Abono Libre / Otro Valor
+                    Abono Libre / Otro Valor
                   </strong>
                   {tipoPagoSeleccionado === 'PERSONALIZADO' && (
                     <div style={{ marginTop: '0.5rem' }}>
@@ -1814,7 +1857,7 @@ export function TarjetasPage() {
 
       {/* MODAL PAGAR CUOTA INDIVIDUAL */}
       {modalPagarCuota && (
-        <Modal isOpen={Boolean(modalPagarCuota)} onClose={() => setModalPagarCuota(null)} title="✓ Pagar Cuota de Compra Individual">
+        <Modal isOpen={Boolean(modalPagarCuota)} onClose={() => setModalPagarCuota(null)} title="Pagar Cuota de Compra Individual">
           <form onSubmit={confirmarPagoCuota} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
             <div>
               <strong style={{ fontSize: '1.05rem' }}>{modalPagarCuota.descripcion}</strong>
@@ -1858,7 +1901,7 @@ export function TarjetasPage() {
         <Modal
           isOpen={Boolean(modalRevertirCuota)}
           onClose={() => setModalRevertirCuota(null)}
-          title="⏪ Revertir Pago de Cuota de Compra"
+          title="Revertir Pago de Cuota de Compra"
           maxWidth="500px"
         >
           <form
@@ -1899,7 +1942,7 @@ export function TarjetasPage() {
                 Cancelar
               </button>
               <button type="submit" className="btn warning">
-                ⏪ Confirmar Reversión y Reembolso
+                Confirmar Reversión y Reembolso
               </button>
             </div>
           </form>
@@ -1908,7 +1951,7 @@ export function TarjetasPage() {
 
       {/* MODAL TABLA DE AMORTIZACIÓN */}
       {modalAmortizacion && (
-        <Modal isOpen={Boolean(modalAmortizacion)} onClose={() => setModalAmortizacion(null)} title={`📊 Tabla de Amortización: ${modalAmortizacion.descripcion}`} maxWidth="680px">
+        <Modal isOpen={Boolean(modalAmortizacion)} onClose={() => setModalAmortizacion(null)} title={`Tabla de Amortización: ${modalAmortizacion.descripcion}`} maxWidth="680px">
           <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem', flexWrap: 'wrap', gap: '0.5rem' }}>
               <span>Monto Total: <strong>{formatMoney(modalAmortizacion.montoTotal)}</strong></span>
@@ -1968,7 +2011,7 @@ export function TarjetasPage() {
         <Modal
           isOpen={Boolean(compraAEditar)}
           onClose={() => setCompraAEditar(null)}
-          title="✏️ Editar Nombre y Detalles de la Compra a Cuotas"
+          title="Editar Nombre y Detalles de la Compra a Cuotas"
         >
           <form onSubmit={handleGuardarEdicionCompra} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
             <div className="form-group">
@@ -2071,7 +2114,7 @@ export function TarjetasPage() {
                 Cancelar
               </button>
               <button type="submit" className="btn primary">
-                💾 Guardar Cambios
+                Guardar Cambios
               </button>
             </div>
           </form>

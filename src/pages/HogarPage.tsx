@@ -2,7 +2,8 @@ import { useState, useMemo, type FormEvent, useEffect } from 'react'
 import { useFinance } from '../context/FinanceContext'
 import { Modal } from '../components/Modal'
 import { DatePickerInput } from '../components/DatePickerInput'
-import { formatMoney, formatDate, formatMonthYear, getDaysRemaining } from '../utils/formatters'
+import { Zap, Flame, Droplets, Wifi, HelpCircle } from '../components/Icons'
+import { formatMoney, formatDate, formatMonthYear, getDaysRemaining, getLocalTodayISO } from '../utils/formatters'
 import type { ArriendoVivienda, CategoriaCompraHogar, ServicioPublico, TipoServicioPublico, ResponsableGastoHogar } from '../types/finance'
 
 export function HogarPage() {
@@ -54,7 +55,7 @@ export function HogarPage() {
   // Form State Compras Hogar
   const [descCompra, setDescCompra] = useState('')
   const [montoCompra, setMontoCompra] = useState('')
-  const [fechaCompra, setFechaCompra] = useState(new Date().toISOString().slice(0, 10))
+  const [fechaCompra, setFechaCompra] = useState(getLocalTodayISO())
   const [catCompra, setCatCompra] = useState<CategoriaCompraHogar>('ASEO')
   const [cuentaCompraId, setCuentaCompraId] = useState(state.cuentas[0]?.id || '')
 
@@ -89,17 +90,8 @@ export function HogarPage() {
       const sorted = [...state.arriendos].sort((a, b) => b.mesCorrespondiente.localeCompare(a.mesCorrespondiente))
       return sorted[0]
     }
-    return {
-      id: 'arr-template',
-      mesCorrespondiente: selectedMonth,
-      monto: 1350000,
-      fechaLimite: `${selectedMonth}-05`,
-      pagado: false,
-      cuentaId: state.cuentas[0]?.id || 'cuenta-bancolombia',
-      arrendador: 'Inmobiliaria El Hogar / Propietario',
-      notas: 'Gasto fijo mensual de vivienda',
-    }
-  }, [state.arriendos, selectedMonth, state.cuentas])
+    return null
+  }, [state.arriendos])
 
   const [cuentaPagoArriendoId, setCuentaPagoArriendoId] = useState('')
 
@@ -120,22 +112,24 @@ export function HogarPage() {
       return
     }
 
-    const montoCanon = arriendoMes ? arriendoMes.monto : (plantillaArriendo?.monto || 1350000)
+    const montoCanon = arriendoMes ? arriendoMes.monto : (plantillaArriendo?.monto || 0)
     const fechaLimiteCanon = arriendoMes ? arriendoMes.fechaLimite : `${selectedMonth}-${diaLimiteArr.padStart(2, '0')}`
 
     if (arriendoMes) {
       togglePagoArriendo(arriendoMes.id, targetCuentaId)
-    } else {
+    } else if (plantillaArriendo) {
       addArriendo({
         mesCorrespondiente: selectedMonth,
         monto: montoCanon,
         fechaLimite: fechaLimiteCanon,
         pagado: true,
-        fechaPago: new Date().toISOString().slice(0, 10),
+        fechaPago: getLocalTodayISO(),
         cuentaId: targetCuentaId,
-        arrendador: plantillaArriendo.arrendador || 'Inmobiliaria El Hogar / Propietario',
-        notas: plantillaArriendo.notas || 'Gasto fijo mensual de vivienda',
+        arrendador: plantillaArriendo.arrendador || 'Inmobiliaria / Propietario',
+        notas: plantillaArriendo.notas || 'Gasto mensual de vivienda',
       })
+    } else {
+      setModalArriendoOpen(true)
     }
   }
 
@@ -392,7 +386,7 @@ export function HogarPage() {
           {activeTab === 'SERVICIOS' && (
             <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
               <button type="button" className="btn secondary sm" onClick={handlePrecargarRecibosSeptiembre}>
-                ⚡ Precargar Recibos (Pago Mamá)
+                Precargar Recibos (Pago Mamá)
               </button>
               <button type="button" className="btn primary sm" onClick={openNewServicioModal}>
                 + Agregar Recibo
@@ -417,21 +411,21 @@ export function HogarPage() {
         {/* Card 1: Arriendo asumido por Ti */}
         <div className="panel" style={{ margin: 0, padding: '1rem 1.25rem', borderLeft: '4px solid var(--color-primary-light)' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.35rem' }}>
-            <span style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--color-text-muted)' }}>👤 Asumido por Ti (Arriendo)</span>
+            <span style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--color-text-muted)' }}>Asumido por Ti (Arriendo)</span>
             <span className="badge primary" style={{ fontSize: '0.7rem' }}>Vivienda</span>
           </div>
           <strong style={{ fontSize: '1.4rem', color: 'var(--color-text-main)' }}>
             {formatMoney(totalArriendoAsumidoYo)}
           </strong>
           <span style={{ fontSize: '0.725rem', color: 'var(--color-text-muted)', display: 'block', marginTop: '2px' }}>
-            {arriendoMes ? (arriendoMes.pagado ? '✓ Arriendo pagado este mes' : '⏳ Pendiente de pago') : 'Sin registrar este mes'}
+            {arriendoMes ? (arriendoMes.pagado ? 'Arriendo pagado este mes' : 'Pendiente de pago') : 'Sin registrar este mes'}
           </span>
         </div>
 
         {/* Card 2: Servicios asumidos por Mamá */}
         <div className="panel" style={{ margin: 0, padding: '1rem 1.25rem', borderLeft: '4px solid #db2777' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.35rem' }}>
-            <span style={{ fontSize: '0.8rem', fontWeight: 600, color: '#db2777' }}>👩‍👧 Asumido por Mamá (Servicios)</span>
+            <span style={{ fontSize: '0.8rem', fontWeight: 600, color: '#db2777' }}>Asumido por Mamá (Servicios)</span>
             <span className="badge" style={{ backgroundColor: 'rgba(219, 39, 119, 0.12)', color: '#db2777', fontSize: '0.7rem' }}>
               4 Recibos
             </span>
@@ -447,7 +441,7 @@ export function HogarPage() {
         {/* Card 3: Compras & Total Hogar */}
         <div className="panel" style={{ margin: 0, padding: '1rem 1.25rem', borderLeft: '4px solid var(--color-income)' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.35rem' }}>
-            <span style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--color-text-muted)' }}>🛒 Compras + Total Hogar</span>
+            <span style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--color-text-muted)' }}>Compras + Total Hogar</span>
             <span className="badge income" style={{ fontSize: '0.7rem' }}>Total</span>
           </div>
           <strong style={{ fontSize: '1.4rem', color: 'var(--color-text-main)' }}>
@@ -466,21 +460,21 @@ export function HogarPage() {
           className={`tab-btn ${activeTab === 'SERVICIOS' ? 'active' : ''}`}
           onClick={() => setActiveTab('SERVICIOS')}
         >
-          💡 Servicios Públicos ({serviciosMes.length})
+          Servicios Públicos ({serviciosMes.length})
         </button>
         <button
           type="button"
           className={`tab-btn ${activeTab === 'ARRIENDO' ? 'active' : ''}`}
           onClick={() => setActiveTab('ARRIENDO')}
         >
-          🏠 Arriendo / Vivienda {arriendoMes ? (arriendoMes.pagado ? '✓' : '⏳') : ''}
+          Arriendo / Vivienda {arriendoMes ? (arriendoMes.pagado ? '(Pagado)' : '(Pendiente)') : ''}
         </button>
         <button
           type="button"
           className={`tab-btn ${activeTab === 'COMPRAS' ? 'active' : ''}`}
           onClick={() => setActiveTab('COMPRAS')}
         >
-          🛒 Compras de Hogar ({comprasHogarMes.length})
+          Compras de Hogar ({comprasHogarMes.length})
         </button>
       </div>
 
@@ -490,11 +484,6 @@ export function HogarPage() {
           <div className="service-cards-grid">
             {serviciosMes.map((s) => {
               const dias = getDaysRemaining(s.fechaVencimiento)
-              let iconEmoji = '⚡'
-              if (s.tipo === 'GAS') iconEmoji = '🔥'
-              if (s.tipo === 'AGUA') iconEmoji = '💧'
-              if (s.tipo === 'INTERNET') iconEmoji = '🌐'
-
               const esDeMama = (s.responsablePago || 'MAMA') === 'MAMA'
 
               return (
@@ -504,7 +493,13 @@ export function HogarPage() {
                 >
                   <div className="service-card-header">
                     <div className="service-card-title-group">
-                      <div className="service-icon-badge">{iconEmoji}</div>
+                      <div className="service-icon-badge" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                        {s.tipo === 'ENERGIA' && <Zap size={18} />}
+                        {s.tipo === 'GAS' && <Flame size={18} />}
+                        {s.tipo === 'AGUA' && <Droplets size={18} />}
+                        {s.tipo === 'INTERNET' && <Wifi size={18} />}
+                        {s.tipo !== 'ENERGIA' && s.tipo !== 'GAS' && s.tipo !== 'AGUA' && s.tipo !== 'INTERNET' && <HelpCircle size={18} />}
+                      </div>
                       <div>
                         <strong className="service-card-name">{s.nombre}</strong>
                         <div style={{ display: 'flex', gap: '0.35rem', marginTop: '2px' }}>
@@ -518,11 +513,11 @@ export function HogarPage() {
                               fontWeight: 700,
                             }}
                           >
-                            {esDeMama ? '👩‍👧 Paga Mamá' : s.responsablePago === 'COMPARTIDO' ? '🤝 Compartido' : '👤 Pagas Tú'}
+                            {esDeMama ? 'Paga Mamá' : s.responsablePago === 'COMPARTIDO' ? 'Compartido' : 'Pagas Tú'}
                           </span>
                           {s.esEstimado && (
                             <span className="badge neutral" style={{ fontSize: '0.675rem', padding: '0.15rem 0.45rem' }}>
-                              ⏳ Estimado
+                              Estimado
                             </span>
                           )}
                         </div>
@@ -530,7 +525,7 @@ export function HogarPage() {
                     </div>
 
                     <span className={`badge ${s.pagado ? 'income' : 'warning'}`}>
-                      {s.pagado ? (esDeMama ? '✓ Pagado por Mamá' : '✓ Pagado') : 'Pendiente'}
+                      {s.pagado ? (esDeMama ? 'Pagado por Mamá' : 'Pagado') : 'Pendiente'}
                     </span>
                   </div>
 
@@ -568,8 +563,8 @@ export function HogarPage() {
                       {s.pagado
                         ? 'Marcar como Pendiente'
                         : esDeMama
-                        ? '✓ Marcar Pagado por Mamá'
-                        : '✓ Registrar Pago'}
+                        ? 'Marcar Pagado por Mamá'
+                        : 'Registrar Pago'}
                     </button>
 
                     <button
@@ -614,7 +609,7 @@ export function HogarPage() {
                   className="btn primary sm"
                   onClick={handlePrecargarRecibosSeptiembre}
                 >
-                  ⚡ Precargar Recibos (Luz, Gas, Agua, Internet - Pago Mamá)
+                  Precargar Recibos (Luz, Gas, Agua, Internet - Pago Mamá)
                 </button>
                 <button
                   type="button"
@@ -634,11 +629,31 @@ export function HogarPage() {
         <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
           {/* Card Principal de Arriendo del Mes */}
           {(() => {
+            if (!arriendoMes && !plantillaArriendo) {
+              return (
+                <div className="panel" style={{ textAlign: 'center', padding: '3rem 1.5rem' }}>
+                  <h2 className="panel-title" style={{ fontSize: '1.25rem', marginBottom: '0.5rem' }}>
+                    Arriendo de {formatMonthYear(selectedMonth)}
+                  </h2>
+                  <p style={{ fontSize: '0.9rem', color: 'var(--color-text-muted)', marginBottom: '1.5rem' }}>
+                    No hay ningún arriendo registrado todavía para este mes.
+                  </p>
+                  <button
+                    type="button"
+                    className="btn primary"
+                    onClick={() => setModalArriendoOpen(true)}
+                  >
+                    + Registrar Arriendo del Mes
+                  </button>
+                </div>
+              )
+            }
+
             const isPagado = Boolean(arriendoMes?.pagado)
-            const montoCanon = arriendoMes ? arriendoMes.monto : (plantillaArriendo?.monto || 1350000)
+            const montoCanon = arriendoMes ? arriendoMes.monto : (plantillaArriendo?.monto || 0)
             const fechaLimiteCanon = arriendoMes ? arriendoMes.fechaLimite : `${selectedMonth}-${diaLimiteArr.padStart(2, '0')}`
             const cuentaActiva = state.cuentas.find((c) => c.id === cuentaPagoArriendoId) || state.cuentas[0]
-            const arrendadorContacto = arriendoMes?.arrendador || plantillaArriendo?.arrendador || 'Inmobiliaria El Hogar / Propietario'
+            const arrendadorContacto = arriendoMes?.arrendador || plantillaArriendo?.arrendador || 'Inmobiliaria / Propietario'
 
             return (
               <div
@@ -653,7 +668,6 @@ export function HogarPage() {
                 <div className="panel-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '0.75rem' }}>
                   <div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.25rem' }}>
-                      <span style={{ fontSize: '1.3rem' }}>🏠</span>
                       <h2 className="panel-title" style={{ fontSize: '1.25rem' }}>
                         Arriendo de {formatMonthYear(selectedMonth)}
                       </h2>
@@ -667,7 +681,7 @@ export function HogarPage() {
                     className={`badge ${isPagado ? 'income' : 'warning'}`}
                     style={{ fontSize: '0.85rem', padding: '0.35rem 0.75rem', fontWeight: 700 }}
                   >
-                    {isPagado ? '✓ Arriendo Pagado' : '⏳ Pendiente de Pago'}
+                    {isPagado ? 'Arriendo Pagado' : 'Pendiente de Pago'}
                   </span>
                 </div>
 
@@ -720,7 +734,7 @@ export function HogarPage() {
                   {/* Columna 2: Selector de Cuenta de Pago */}
                   <div>
                     <label style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)', textTransform: 'uppercase', fontWeight: 700, letterSpacing: '0.04em', display: 'block', marginBottom: '0.4rem' }}>
-                      💳 ¿De dónde se paga el arriendo?
+                      ¿De dónde se paga el arriendo?
                     </label>
                     <select
                       className="form-select"
@@ -746,7 +760,7 @@ export function HogarPage() {
                       <span style={{ display: 'block', fontSize: '0.75rem', color: 'var(--color-text-muted)', marginTop: '0.4rem' }}>
                         {isPagado ? (
                           <span style={{ color: 'var(--color-income)' }}>
-                            ✓ Descontado del saldo de {cuentaActiva.nombre}
+                            Descontado del saldo de {cuentaActiva.nombre}
                           </span>
                         ) : (
                           <span>
@@ -772,8 +786,7 @@ export function HogarPage() {
                         }}
                       >
                         <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: '#059669', fontWeight: 700, fontSize: '0.9rem' }}>
-                          <span>✓</span>
-                          <span>Pagado el {formatDate(arriendoMes?.fechaPago || new Date().toISOString().slice(0, 10))}</span>
+                          <span>Pagado el {formatDate(arriendoMes?.fechaPago || getLocalTodayISO())}</span>
                         </div>
                         <span style={{ fontSize: '0.78rem', color: 'var(--color-text-muted)', display: 'block', marginTop: '2px' }}>
                           Medio de pago: <strong>{cuentaActiva?.nombre || 'Cuenta'}</strong>
@@ -795,7 +808,6 @@ export function HogarPage() {
                           boxShadow: '0 4px 12px rgba(16, 185, 129, 0.3)',
                         }}
                       >
-                        <span>✓</span>
                         <span>Pagar {formatMoney(montoCanon)} con {cuentaActiva?.nombre || 'Cuenta'}</span>
                       </button>
                     )}
@@ -824,7 +836,7 @@ export function HogarPage() {
                           }
                         }}
                       >
-                        ⚙️ Ajustar Canon
+                        Ajustar Canon
                       </button>
                     </div>
                   </div>
@@ -832,7 +844,6 @@ export function HogarPage() {
 
                 {(arriendoMes?.notas || plantillaArriendo?.notas) && (
                   <div style={{ fontSize: '0.8rem', color: 'var(--color-text-muted)', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-                    <span>📝</span>
                     <span>{arriendoMes?.notas || plantillaArriendo?.notas}</span>
                   </div>
                 )}
@@ -889,7 +900,7 @@ export function HogarPage() {
                         </td>
                         <td>
                           <span className={`badge ${a.pagado ? 'income' : 'expense'}`} style={{ fontSize: '0.75rem' }}>
-                            {a.pagado ? '✓ Pagado' : '⏳ Pendiente'}
+                            {a.pagado ? 'Pagado' : 'Pendiente'}
                           </span>
                         </td>
                         <td style={{ fontSize: '0.825rem', color: a.fechaPago ? 'var(--color-income)' : 'var(--color-text-muted)' }}>
@@ -903,11 +914,11 @@ export function HogarPage() {
                             onClick={() => openEditArriendoModal(a)}
                             title="Editar este arriendo"
                           >
-                            ✏️ Editar
+                            Editar
                           </button>
                           <button
                             type="button"
-                            className="btn ghost sm icon-only"
+                            className="btn ghost sm"
                             style={{ color: 'var(--color-expense)' }}
                             onClick={() => {
                               if (confirm(`¿Eliminar arriendo de ${formatMonthYear(a.mesCorrespondiente)}?`)) {
@@ -917,7 +928,7 @@ export function HogarPage() {
                             title="Eliminar"
                             aria-label="Eliminar"
                           >
-                            ✕
+                            Eliminar
                           </button>
                         </td>
                       </tr>
@@ -987,7 +998,7 @@ export function HogarPage() {
                           onClick={() => deleteCompraHogar(c.id)}
                           title="Eliminar"
                         >
-                          ✕
+                          Eliminar
                         </button>
                       </td>
                     </tr>
@@ -1013,16 +1024,16 @@ export function HogarPage() {
           setModalServicioOpen(false)
           setEditingServicioId(null)
         }}
-        title={editingServicioId ? '✏️ Editar Recibo de Servicio' : '💡 Registrar Recibo de Servicio'}
+        title={editingServicioId ? 'Editar Recibo de Servicio' : 'Registrar Recibo de Servicio'}
       >
         <form onSubmit={handleAddOrUpdateServicio} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
           <div className="form-group">
             <label>Tipo de Servicio *</label>
             <select className="form-select" value={tipoServ} onChange={(e) => setTipoServ(e.target.value as typeof tipoServ)}>
-              <option value="ENERGIA">⚡ Energía / Luz (EPM / Enel / etc.)</option>
-              <option value="GAS">🔥 Gas Natural</option>
-              <option value="AGUA">💧 Agua / Acueducto & Alcantarillado</option>
-              <option value="INTERNET">🌐 Internet Fibra / TV / Telefonía</option>
+              <option value="ENERGIA">Energía / Luz (EPM / Enel / etc.)</option>
+              <option value="GAS">Gas Natural</option>
+              <option value="AGUA">Agua / Acueducto & Alcantarillado</option>
+              <option value="INTERNET">Internet Fibra / TV / Telefonía</option>
               <option value="OTRO">Otro Servicio</option>
             </select>
           </div>
@@ -1101,7 +1112,7 @@ export function HogarPage() {
                     color: responsableServ === 'MAMA' ? '#ffffff' : undefined,
                   }}
                 >
-                  👩‍👧 Mamá (Madre)
+                  Mamá (Madre)
                 </button>
                 <button
                   type="button"
@@ -1109,13 +1120,13 @@ export function HogarPage() {
                   onClick={() => setResponsableServ('YO')}
                   style={{ justifyContent: 'center' }}
                 >
-                  👤 Yo (Usuario)
+                  Yo (Usuario)
                 </button>
               </div>
               <span style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)', display: 'block', marginTop: '0.45rem' }}>
                 {responsableServ === 'MAMA'
-                  ? '💡 Lo paga Mamá: Al marcarlo como pagado NO descontará dinero de tus cuentas bancarias.'
-                  : '💳 Lo pagas tú: Al marcarlo como pagado se debitará de tu cuenta seleccionada.'}
+                  ? 'Lo paga Mamá: Al marcarlo como pagado NO descontará dinero de tus cuentas bancarias.'
+                  : 'Lo pagas tú: Al marcarlo como pagado se debitará de tu cuenta seleccionada.'}
               </span>
             </div>
 
@@ -1127,7 +1138,7 @@ export function HogarPage() {
                 onChange={(e) => setEsEstimadoServ(e.target.checked)}
               />
               <span style={{ fontSize: '0.85rem', color: 'var(--color-text-main)' }}>
-                ⏳ Aún no ha llegado el recibo (Marcar como valor estimado pendiente)
+                Aún no ha llegado el recibo (Marcar como valor estimado pendiente)
               </span>
             </label>
 
@@ -1156,7 +1167,7 @@ export function HogarPage() {
           setModalArriendoOpen(false)
           setEditingArriendoId(null)
         }}
-        title={editingArriendoId ? '✏️ Editar Arriendo de Vivienda' : '🏠 Registrar Arriendo del Mes'}
+        title={editingArriendoId ? 'Editar Arriendo de Vivienda' : 'Registrar Arriendo del Mes'}
       >
         <form onSubmit={handleAddOrUpdateArriendo} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
           <div className="form-grid">
@@ -1252,7 +1263,7 @@ export function HogarPage() {
       </Modal>
 
       {/* MODAL COMPRA HOGAR */}
-      <Modal isOpen={modalCompraOpen} onClose={() => setModalCompraOpen(false)} title="🛒 Registrar Compra de Hogar">
+      <Modal isOpen={modalCompraOpen} onClose={() => setModalCompraOpen(false)} title="Registrar Compra de Hogar">
         <form onSubmit={handleAddCompraHogar} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
           <div className="form-group">
             <label>Descripción del Artículo o Servicio *</label>

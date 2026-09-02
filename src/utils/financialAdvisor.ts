@@ -495,13 +495,13 @@ export function responderPreguntaAsesor(pregunta: string, state: FullFinanceStat
     const colchonImprevistos = Math.round(presupuestoBaseTotal * 0.1)
     const presupuestoRecomendado = presupuestoBaseTotal + colchonImprevistos
 
-    return `### 📅 Presupuesto Proyectado para **${nombreMes}**:
+    return `### Presupuesto Proyectado para **${nombreMes}**:
 
 Para operar con tranquilidad y tener todas tus obligaciones cubiertas, este es el presupuesto mensual que debes reservar:
 
 ---
 
-#### 🏠 1. Gastos Fijos y Básicos Obligatorios:
+#### 1. Gastos Fijos y Básicos Obligatorios:
 - **Arriendo / Vivienda:** ${formatMoney(estArriendo)}
 - **Servicios Públicos (Luz, Agua, Gas, Internet):** ${formatMoney(estServicios)}
 - **Servicios Personales & Fijos (Parqueadero, Celular, Netflix, etc.):** ${formatMoney(estRecurrentes)}
@@ -509,18 +509,18 @@ Para operar con tranquilidad y tener todas tus obligaciones cubiertas, este es e
 - **Cuotas de Tarjetas Diferidas:** ${formatMoney(estCuotasTarjetas)}
   *(Amortización de compras a plazos vigentes como Mercado Pago)*
 
-#### 🍲 2. Gastos Variables Estimados:
+#### 2. Gastos Variables Estimados:
 - **Alimentación (Almuerzos diarios + Mercado):** ~${formatMoney(estAlimentacion)}
 - **Transporte, Gasolina & Imprevistos:** ~${formatMoney(estGastosVariables)}
 
 ---
 
-### 💵 Resumen del Presupuesto Requerido:
+### Resumen del Presupuesto Requerido:
 - **Presupuesto Base Necesario:** **${formatMoney(presupuestoBaseTotal)}**
 - **Colchón de Imprevistos (10% sugerido):** **+${formatMoney(colchonImprevistos)}**
-- 🎯 **Total Sugerido a Disponer:** **${formatMoney(presupuestoRecomendado)}**
+- **Total Sugerido a Disponer:** **${formatMoney(presupuestoRecomendado)}**
 
-💡 **Estado de tu Liquidez:** Cuentas con **${formatMoney(liquidezTotal)}** en tus cuentas bancarias, lo que te permite cubrir holgadamente este presupuesto mensual sin riesgo de iliquidez.`
+**Estado de tu Liquidez:** Cuentas con **${formatMoney(liquidezTotal)}** en tus cuentas bancarias, lo que te permite cubrir holgadamente este presupuesto mensual sin riesgo de iliquidez.`
   }
 
   // =========================================================================
@@ -538,24 +538,24 @@ Para operar con tranquilidad y tener todas tus obligaciones cubiertas, este es e
   ) {
     const salud = calcularSaludFinanciera(state, selectedMonth)
 
-    return `### 🩺 Diagnóstico Completo de tu Estado Financiero:
+    return `### Diagnóstico Completo de tu Estado Financiero:
 
 **Índice de Salud Financiera:** **${salud.scoreTotal}/100** — Nivel **${salud.nivel}**
 
 ---
 
-#### 📊 Radiografía Actual de tus Recursos:
-- **💰 Liquidez Disponible en Cuentas:** **${formatMoney(liquidezTotal)}** *(Fondo en cuentas y bolsillos)*
-- **💳 Deuda Total en Tarjetas de Crédito:** **${formatMoney(deudaTotal)}** *(Saldo pendiente diferido)*
-- **📅 Cuotas de Tarjeta Facturadas al Mes:** **${formatMoney(cuotasTarjetasMes)}**
-- **🔁 Gastos Fijos Mensuales Registrados:** **${formatMoney(totalGastosFijosRecurrentes)}/mes** *(Parqueadero, Celular, Streaming)*
+#### Radiografía Actual de tus Recursos:
+- **Liquidez Disponible en Cuentas:** **${formatMoney(liquidezTotal)}** *(Fondo en cuentas y bolsillos)*
+- **Deuda Total en Tarjetas de Crédito:** **${formatMoney(deudaTotal)}** *(Saldo pendiente diferido)*
+- **Cuotas de Tarjeta Facturadas al Mes:** **${formatMoney(cuotasTarjetasMes)}**
+- **Gastos Fijos Mensuales Registrados:** **${formatMoney(totalGastosFijosRecurrentes)}/mes** *(Parqueadero, Celular, Streaming)*
 
 ---
 
-#### 🚦 Semáforo Financiero:
-- 🟢 **Fortaleza Principal:** Tu colchón de liquidez (${formatMoney(liquidezTotal)}) te otorga un respaldo sólido de más de 2 a 3 meses para cubrir cualquier imprevisto sin recurrir a préstamos.
-- 🟡 **Punto de Atención:** Tienes compras diferidas a cuotas activas (como Mercado Pago). Conviene no aumentar el número de compras a plazos para mantener la cuota mensual baja.
-- 🚀 **Estrategia Recomendada:** 
+#### Semáforo Financiero:
+- **Fortaleza Principal:** Tu colchón de liquidez (${formatMoney(liquidezTotal)}) te otorga un respaldo sólido de más de 2 a 3 meses para cubrir cualquier imprevisto sin recurrir a préstamos.
+- **Punto de Atención:** Tienes compras diferidas a cuotas activas (como Mercado Pago). Conviene no aumentar el número de compras a plazos para mantener la cuota mensual baja.
+- **Estrategia Recomendada:** 
   1. Mantén tus consumos mensuales corrientes (gasolina, celular, salidas) pagados a **1 cuota** con tarjeta.
   2. Si recibes ingresos adicionales, realiza abonos a capital a tus compras a cuotas para reducir el saldo restante de ${formatMoney(deudaTotal)}.`
   }
@@ -573,18 +573,18 @@ Para operar con tranquilidad y tener todas tus obligaciones cubiertas, este es e
     p.includes('fijo') ||
     p.includes('servicios personales')
   ) {
-    return `### 📱 Control de Gastos Fijos & Suscripciones Mensuales:
+    return `### Control de Gastos Fijos & Suscripciones Mensuales:
 
 Tienes configurados los siguientes servicios fijos recurrentes:
-- 🅿️ **Parqueadero mensual:** $ 30.000
-- 📱 **Plan de Celular (Claro / Movistar):** $ 45.000
-- 🎬 **Netflix Colombia:** $ 35.000
-- 🍙 **Crunchyroll Fan:** $ 15.000
+- **Parqueadero mensual:** $ 30.000
+- **Plan de Celular (Claro / Movistar):** $ 45.000
+- **Netflix Colombia:** $ 35.000
+- **Crunchyroll Fan:** $ 15.000
 
 ---
 - **Total Compromiso Fijo Mensual:** **${formatMoney(totalGastosFijosRecurrentes > 0 ? totalGastosFijosRecurrentes : 125000)}**
 
-💡 **Recomendación:** Estos gastos se cargan a tu tarjeta de crédito a **1 sola cuota** para acumular puntos o cashback sin generar intereses si pagas el extracto total a la fecha de corte.`
+**Recomendación:** Estos gastos se cargan a tu tarjeta de crédito a **1 sola cuota** para acumular puntos o cashback sin generar intereses si pagas el extracto total a la fecha de corte.`
   }
 
   // =========================================================================
@@ -605,11 +605,11 @@ Tienes configurados los siguientes servicios fijos recurrentes:
       .filter((a) => a.fecha.startsWith(mesObjetivo) && (a.beneficiario === 'HERMANO' || a.beneficiario === 'AMBOS'))
       .reduce((acc, a) => acc + a.monto, 0)
 
-    return `### 🥗 Diagnóstico de Almuerzos y Alimentación:
+    return `### Diagnóstico de Almuerzos y Alimentación:
 - **Total gastado en almuerzos:** ${formatMoney(totalAlm > 0 ? totalAlm : 140000)}
 - **Total en comidas compartidas / para tu hermano:** ${formatMoney(totalHermano)}
 
-💡 **Estrategia de Optimización del Asesor:**
+**Estrategia de Optimización del Asesor:**
 1. **Corrientazo ($9k) vs Ejecutivo ($14k):** Si compras para ti y tu hermano, elegir corrientazo ($18.000) 3 días por semana en vez de ejecutivo ($28.000) genera un **ahorro de $120.000/mes**.
 2. **Cocinar los Fines de Semana:** 2 almuerzos comprados sábado y domingo a $14.000 suman **$56.000/semana** ($224.000/mes). Cocinar en casa los fines de semana ahorra más del 60% usando mercado general.
 3. **Cuentas Claras:** En el módulo de Alimentación puedes filtrar exactamente qué porciones corresponden a tu hermano.`
@@ -628,23 +628,23 @@ Tienes configurados los siguientes servicios fijos recurrentes:
   ) {
     const comprasActivas = (state.comprasCuotas || []).filter((c) => c.estado === 'ACTIVA')
     if (comprasActivas.length === 0) {
-      return `### 💳 Estado de tus Tarjetas:
+      return `### Estado de tus Tarjetas:
 ¡Excelente noticia! **No tienes deudas diferidas activas.**
 - Cupo total disponible: **${formatMoney((state.tarjetas || []).reduce((acc, t) => acc + t.cupoTotal, 0))}**
 
-💡 **Consejo:** Sigue usando tus tarjetas a 1 cuota para servicios como celular, gasolina y parqueadero sin pagar intereses.`
+**Consejo:** Sigue usando tus tarjetas a 1 cuota para servicios como celular, gasolina y parqueadero sin pagar intereses.`
     }
 
-    return `### 💳 Estrategia Recomendada para tus Tarjetas de Crédito:
+    return `### Estrategia Recomendada para tus Tarjetas de Crédito:
 - **Deuda Total Pendiente a Cuotas:** **${formatMoney(deudaTotal)}**
 - **Cuota Mensual a Pagar:** **${formatMoney(cuotasTarjetasMes)}**
 
 ---
 
-#### 📋 Compras Diferidas Activas:
+#### Compras Diferidas Activas:
 ${comprasActivas.map((c) => `- **${c.descripcion}:** Cuota actual de **${formatMoney(c.valorCuota)}** (Saldo restante: **${formatMoney(c.saldoRestante)}** | Progreso: ${c.cuotasPagadas}/${c.cuotasTotales} cuotas)`).join('\n')}
 
-🎯 **Recomendación:** Puedes realizar abonos extraordinarios a capital desde la app para reducir el saldo pendiente más rápido.`
+**Recomendación:** Puedes realizar abonos extraordinarios a capital desde la app para reducir el saldo pendiente más rápido.`
   }
 
   // =========================================================================
@@ -662,20 +662,20 @@ ${comprasActivas.map((c) => `- **${c.descripcion}:** Cuota actual de **${formatM
     const meta30 = Math.round(baseCalculo * 0.3)
     const meta20 = Math.round(baseCalculo * 0.2)
 
-    return `### 💼 Plan de Distribución de tu Nómina (Regla 50/30/20):
+    return `### Plan de Distribución de tu Nómina (Regla 50/30/20):
 Tomando como base **${formatMoney(baseCalculo)}**:
 
-1. **🏠 50% Gastos Esenciales / Fijos (${formatMoney(meta50)}):**
+1. **50% Gastos Esenciales / Fijos (${formatMoney(meta50)}):**
    - Arriendo + Recibos (Luz, Agua, Gas, Internet).
    - Mercado básico familiar.
    - Parqueadero y celular.
 
-2. **🎉 30% Gastos Personales & Ocio (${formatMoney(meta30)}):**
+2. **30% Gastos Personales & Ocio (${formatMoney(meta30)}):**
    - Salidas a comer y restaurantes.
    - Suscripciones (Netflix, Crunchyroll).
    - Transporte y antojos.
 
-3. **💰 20% Ahorro & Liquidación de Deudas (${formatMoney(meta20)}):**
+3. **20% Ahorro & Liquidación de Deudas (${formatMoney(meta20)}):**
    - Cuotas diferidas de tarjeta de crédito.
    - Ahorro para tu Fondo de Emergencia en cuentas de alta rentabilidad.`
   }
@@ -683,17 +683,17 @@ Tomando como base **${formatMoney(baseCalculo)}**:
   // =========================================================================
   // RESPUESTA INTELIGENTE POR DEFECTO CON CONTEXTO COMPLETO
   // =========================================================================
-  return `### 📊 Resumen Ejecutivo Inteligente (${mesObjetivo}):
-- **💰 Liquidez en Cuentas Bancarias:** **${formatMoney(liquidezTotal)}**
-- **💳 Deuda Total en Tarjetas a Cuotas:** **${formatMoney(deudaTotal)}**
-- **🔁 Gastos Fijos Recurrentes Identificados:** **${formatMoney(totalGastosFijosRecurrentes > 0 ? totalGastosFijosRecurrentes : 125000)}/mes**
-- **📅 Cuotas de Tarjeta del Mes:** **${formatMoney(cuotasTarjetasMes)}**
+  return `### Resumen Ejecutivo Inteligente (${mesObjetivo}):
+- **Liquidez en Cuentas Bancarias:** **${formatMoney(liquidezTotal)}**
+- **Deuda Total en Tarjetas a Cuotas:** **${formatMoney(deudaTotal)}**
+- **Gastos Fijos Recurrentes Identificados:** **${formatMoney(totalGastosFijosRecurrentes > 0 ? totalGastosFijosRecurrentes : 125000)}/mes**
+- **Cuotas de Tarjeta del Mes:** **${formatMoney(cuotasTarjetasMes)}**
 
 ---
-💡 **¿En qué te puedo asesorar hoy?**
-- 📅 *"¿Qué presupuesto debo tener para septiembre?"*
-- 🩺 *"Revisa cómo está mi estado financiero"*
-- 📱 *"¿Cuánto gasto en suscripciones y gastos fijos?"*
-- 🥗 *"Estrategia de ahorro en almuerzos y comidas"*
-- 💳 *"¿Cómo pagar más rápido mis tarjetas de crédito?"*`
+**¿En qué te puedo asesorar hoy?**
+- *"¿Qué presupuesto debo tener para septiembre?"*
+- *"Revisa cómo está mi estado financiero"*
+- *"¿Cuánto gasto en suscripciones y gastos fijos?"*
+- *"Estrategia de ahorro en almuerzos y comidas"*
+- *"¿Cómo pagar más rápido mis tarjetas de crédito?"*`
 }

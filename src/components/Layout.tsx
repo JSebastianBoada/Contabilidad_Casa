@@ -4,6 +4,7 @@ import { useFinance } from '../context/FinanceContext'
 import { useAuth } from '../auth/AuthContext'
 import { useTheme } from '../context/ThemeContext'
 import { QuickAddModal } from './QuickAddModal'
+import { Modal } from './Modal'
 import { ToastContainer } from './Toast'
 import { MonthPicker } from './MonthPicker'
 import { formatMoney, formatCompactMoney } from '../utils/formatters'
@@ -15,6 +16,7 @@ export function Layout() {
     setSelectedMonth,
     isFirebaseActive,
     saldoLiquidezTotal,
+    clearAllData,
   } = useFinance()
 
   const { user, logout } = useAuth()
@@ -25,6 +27,7 @@ export function Layout() {
   })
   const [sidebarMobileOpen, setSidebarMobileOpen] = useState(false)
   const [quickAddOpen, setQuickAddOpen] = useState(false)
+  const [modalResetOpen, setModalResetOpen] = useState(false)
 
   const handleToggleSidebar = () => {
     if (window.innerWidth <= 992) {
@@ -153,14 +156,14 @@ export function Layout() {
               <circle cx="15" cy="15" r="1.5" />
               <line x1="9" y1="19" x2="15" y2="19" />
             </svg>
-            <span>🤖 Asesor Financiero</span>
+            <span>Asesor Financiero</span>
           </NavLink>
 
           <NavLink
             to="/conciliacion"
             className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`}
             onClick={() => setSidebarMobileOpen(false)}
-            title="Auditor & Extractos PDF"
+            title="Conciliación Extractos"
           >
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
@@ -169,19 +172,45 @@ export function Layout() {
               <line x1="16" y1="17" x2="8" y2="17" />
               <polyline points="10 9 9 9 8 9" />
             </svg>
-            <span>🔍 Auditor & Extractos</span>
+            <span>Conciliación Extractos</span>
           </NavLink>
 
-          <span className="nav-section-label">Hogar y Familia</span>
+          <span className="nav-section-label">Módulos</span>
+          <NavLink
+            to="/cuentas"
+            className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`}
+            onClick={() => setSidebarMobileOpen(false)}
+            title="Bancos & Cuentas"
+          >
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <rect x="2" y="5" width="20" height="14" rx="2" />
+              <line x1="2" y1="10" x2="22" y2="10" />
+            </svg>
+            <span>Bancos & Cuentas</span>
+          </NavLink>
+
+          <NavLink
+            to="/tarjetas"
+            className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`}
+            onClick={() => setSidebarMobileOpen(false)}
+            title="Tarjetas de Crédito"
+          >
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <rect x="1" y="4" width="22" height="16" rx="2" ry="2" />
+              <line x1="1" y1="10" x2="23" y2="10" />
+            </svg>
+            <span>Tarjetas de Crédito</span>
+          </NavLink>
+
           <NavLink
             to="/hogar"
             className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`}
             onClick={() => setSidebarMobileOpen(false)}
-            title="Hogar & Servicios Públicos"
+            title="Hogar & Servicios"
           >
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
-              <path d="M9 22V12h6v10" />
+              <polyline points="9 22 9 12 15 12 15 22" />
             </svg>
             <span>Hogar & Servicios</span>
           </NavLink>
@@ -202,50 +231,17 @@ export function Layout() {
             <span>Alimentación & Mercado</span>
           </NavLink>
 
-          <span className="nav-section-label">Finanzas & Crédito</span>
           <NavLink
             to="/personal"
             className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`}
             onClick={() => setSidebarMobileOpen(false)}
-            title="Personal, Nómina & Ocio"
+            title="Personal, Fijos & Ocio"
           >
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
               <circle cx="12" cy="7" r="4" />
-              <path d="M5.5 21v-2a6.5 6.5 0 0 1 13 0v2" />
             </svg>
-            <span>Personal, Nómina & Ocio</span>
-          </NavLink>
-
-          <NavLink
-            to="/tarjetas"
-            className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`}
-            onClick={() => setSidebarMobileOpen(false)}
-            title="Tarjetas de Crédito & Cuotas"
-          >
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <rect x="2" y="5" width="20" height="14" rx="2" />
-              <line x1="2" y1="10" x2="22" y2="10" />
-            </svg>
-            <span>Tarjetas & Cuotas</span>
-          </NavLink>
-
-          <NavLink
-            to="/cuentas"
-            className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`}
-            onClick={() => setSidebarMobileOpen(false)}
-            title="Cuentas & Liquidez"
-          >
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M3 21h18" />
-              <path d="M3 10h18" />
-              <path d="M5 6l7-3 7 3" />
-              <path d="M4 10v11" />
-              <path d="M20 10v11" />
-              <path d="M8 14v4" />
-              <path d="M12 14v4" />
-              <path d="M16 14v4" />
-            </svg>
-            <span>Cuentas & Liquidez</span>
+            <span>Personal, Fijos & Ocio</span>
           </NavLink>
 
           <NavLink
@@ -262,8 +258,18 @@ export function Layout() {
           </NavLink>
         </nav>
 
-        {/* Sidebar Footer - Indicador de Estado de Conexión */}
-        <div className="sidebar-footer">
+        {/* Sidebar Footer - Estado y Botón de Reinicio */}
+        <div className="sidebar-footer" style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', padding: '0.75rem' }}>
+          <button
+            type="button"
+            className="btn ghost sm"
+            onClick={() => setModalResetOpen(true)}
+            style={{ width: '100%', fontSize: '0.75rem', color: '#ef4444', justifyContent: 'center' }}
+            title="Reiniciar todos los datos a $0"
+          >
+            Reiniciar todo a $0
+          </button>
+
           <div
             className="firebase-status-pill"
             style={{
@@ -271,11 +277,11 @@ export function Layout() {
               alignItems: 'center',
               justifyContent: 'center',
               gap: '0.5rem',
-              padding: '0.6rem 0.75rem',
+              padding: '0.45rem 0.75rem',
               backgroundColor: isFirebaseActive ? 'rgba(16, 185, 129, 0.08)' : 'rgba(245, 158, 11, 0.08)',
               border: `1px solid ${isFirebaseActive ? 'rgba(16, 185, 129, 0.25)' : 'rgba(245, 158, 11, 0.25)'}`,
               borderRadius: 'var(--radius-md)',
-              fontSize: '0.78rem',
+              fontSize: '0.75rem',
               fontWeight: 600,
               color: isFirebaseActive ? '#059669' : '#d97706',
             }}
@@ -284,8 +290,8 @@ export function Layout() {
             <span
               className="bullet"
               style={{
-                width: '8px',
-                height: '8px',
+                width: '7px',
+                height: '7px',
                 borderRadius: '50%',
                 backgroundColor: isFirebaseActive ? '#10b981' : '#f59e0b',
                 boxShadow: isFirebaseActive ? '0 0 8px #10b981' : 'none',
@@ -329,6 +335,17 @@ export function Layout() {
               <span className="liquidity-full-text">Liquidez: <strong>{formatMoney(saldoLiquidezTotal)}</strong></span>
               <span className="liquidity-mobile-text"><strong>{formatCompactMoney(saldoLiquidezTotal)}</strong></span>
             </div>
+
+            {/* Botón Reiniciar a 0 */}
+            <button
+              type="button"
+              className="btn ghost sm"
+              onClick={() => setModalResetOpen(true)}
+              style={{ fontSize: '0.75rem', color: '#ef4444', padding: '0.35rem 0.6rem' }}
+              title="Reiniciar todos los datos a $0"
+            >
+              Reiniciar a $0
+            </button>
 
             {/* Botón de Modo Oscuro / Modo Claro */}
             <button
@@ -376,6 +393,38 @@ export function Layout() {
           <Outlet />
         </main>
       </div>
+
+      {/* Modal Confirmación Reinicio */}
+      <Modal
+        isOpen={modalResetOpen}
+        onClose={() => setModalResetOpen(false)}
+        title="Confirmar reinicio total a 0"
+        maxWidth="500px"
+      >
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', padding: '0.5rem 0' }}>
+          <p style={{ margin: 0, fontSize: '0.95rem', lineHeight: 1.5 }}>
+            ¿Estás seguro de que deseas reiniciar todos los datos a $0?
+          </p>
+          <div style={{ backgroundColor: 'rgba(239, 68, 68, 0.1)', border: '1px solid rgba(239, 68, 68, 0.3)', borderRadius: 'var(--radius-md)', padding: '0.75rem 1rem', fontSize: '0.85rem', color: '#f87171', lineHeight: 1.4 }}>
+            Esta acción eliminará todos los registros históricos (ingresos, gastos, arriendos, servicios, compras del hogar, alimentación, ocio, cuotas de tarjetas y transferencias) y restablecerá los saldos de tus cuentas a $0.
+          </div>
+          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.75rem', marginTop: '0.5rem' }}>
+            <button type="button" className="btn secondary" onClick={() => setModalResetOpen(false)}>
+              Cancelar
+            </button>
+            <button
+              type="button"
+              className="btn danger"
+              onClick={() => {
+                clearAllData()
+                setModalResetOpen(false)
+              }}
+            >
+              Sí, reiniciar todo a $0
+            </button>
+          </div>
+        </div>
+      </Modal>
 
       {/* Modales Globales */}
       <QuickAddModal isOpen={quickAddOpen} onClose={() => setQuickAddOpen(false)} />

@@ -1,7 +1,8 @@
 import { useState, useMemo, type FormEvent } from 'react'
 import { useFinance } from '../context/FinanceContext'
 import { Modal } from '../components/Modal'
-import { formatMoney, formatDate } from '../utils/formatters'
+import { formatMoney, formatDate, formatMonthYear, getLocalTodayISO } from '../utils/formatters'
+import { consolidarMovimientos } from '../utils/movimientosHelper'
 import type { TipoCuenta, CuentaFinanciera } from '../types/finance'
 
 function getAccountVisualInfo(c: CuentaFinanciera) {
@@ -15,7 +16,7 @@ function getAccountVisualInfo(c: CuentaFinanciera) {
 
   if (isHermano) {
     return {
-      icon: '👦',
+      icon: '',
       color: '#06b6d4',
       bgGlow: 'rgba(6, 182, 212, 0.12)',
       borderColor: 'rgba(6, 182, 212, 0.4)',
@@ -26,7 +27,7 @@ function getAccountVisualInfo(c: CuentaFinanciera) {
 
   if (isBancolombia) {
     return {
-      icon: '🏦',
+      icon: '',
       color: '#f59e0b',
       bgGlow: 'rgba(245, 158, 11, 0.12)',
       borderColor: 'rgba(245, 158, 11, 0.4)',
@@ -37,7 +38,7 @@ function getAccountVisualInfo(c: CuentaFinanciera) {
 
   if (isNu) {
     return {
-      icon: '🟣',
+      icon: '',
       color: '#9333ea',
       bgGlow: 'rgba(147, 51, 234, 0.12)',
       borderColor: 'rgba(147, 51, 234, 0.4)',
@@ -48,7 +49,7 @@ function getAccountVisualInfo(c: CuentaFinanciera) {
 
   if (isNequi) {
     return {
-      icon: '📱',
+      icon: '',
       color: '#8b5cf6',
       bgGlow: 'rgba(139, 92, 246, 0.12)',
       borderColor: 'rgba(139, 92, 246, 0.4)',
@@ -59,7 +60,7 @@ function getAccountVisualInfo(c: CuentaFinanciera) {
 
   if (isDaviplata) {
     return {
-      icon: '📱',
+      icon: '',
       color: '#ef4444',
       bgGlow: 'rgba(239, 68, 68, 0.12)',
       borderColor: 'rgba(239, 68, 68, 0.4)',
@@ -70,7 +71,7 @@ function getAccountVisualInfo(c: CuentaFinanciera) {
 
   if (isEfectivo) {
     return {
-      icon: '💵',
+      icon: '',
       color: '#10b981',
       bgGlow: 'rgba(16, 185, 129, 0.12)',
       borderColor: 'rgba(16, 185, 129, 0.4)',
@@ -81,7 +82,7 @@ function getAccountVisualInfo(c: CuentaFinanciera) {
 
   const customColor = c.color || '#3b82f6'
   return {
-    icon: c.tipo === 'BANCO' ? '🏛️' : c.tipo === 'EFECTIVO' ? '💵' : '📱',
+    icon: '',
     color: customColor,
     bgGlow: `${customColor}18`,
     borderColor: `${customColor}45`,
@@ -93,6 +94,7 @@ function getAccountVisualInfo(c: CuentaFinanciera) {
 export function CuentasPage() {
   const {
     state,
+    selectedMonth,
     saldoLiquidezTotal,
     addCuenta,
     updateCuenta,
@@ -116,7 +118,22 @@ export function CuentasPage() {
   const [destinoId, setDestinoId] = useState(state.cuentas[1]?.id || '')
   const [montoTransf, setMontoTransf] = useState('')
   const [descTransf, setDescTransf] = useState('')
-  const [fechaTransf, setFechaTransf] = useState(new Date().toISOString().slice(0, 10))
+  const [fechaTransf, setFechaTransf] = useState(getLocalTodayISO())
+
+  // Filtros de Movimientos de Cuentas
+  const [tabHistorialCuentas, setTabHistorialCuentas] = useState<'MOVIMIENTOS' | 'TRANSFERENCIAS'>('MOVIMIENTOS')
+  const [cuentaFiltroMovs, setCuentaFiltroMovs] = useState<string>('TODAS')
+  const [periodoFiltroMovs, setPeriodoFiltroMovs] = useState<'MES_ACTUAL' | 'TODOS'>('MES_ACTUAL')
+  const [busquedaCuentaMovs, setBusquedaCuentaMovs] = useState('')
+
+  // Movimientos de cuentas consolidados
+  const movimientosDeCuentas = useMemo(() => {
+    return consolidarMovimientos(state, {
+      mes: periodoFiltroMovs === 'MES_ACTUAL' ? selectedMonth : undefined,
+      cuentaId: cuentaFiltroMovs !== 'TODAS' ? cuentaFiltroMovs : undefined,
+      busqueda: busquedaCuentaMovs,
+    }).filter((m) => Boolean(m.cuentaId) || m.modulo === 'TRANSFERENCIAS')
+  }, [state, periodoFiltroMovs, selectedMonth, cuentaFiltroMovs, busquedaCuentaMovs])
 
   // Totales por categoría
   const statsCuentas = useMemo(() => {
@@ -167,7 +184,7 @@ export function CuentasPage() {
     if (otro) setDestinoId(otro.id)
     setMontoTransf('')
     setDescTransf('')
-    setFechaTransf(new Date().toISOString().slice(0, 10))
+    setFechaTransf(getLocalTodayISO())
     setModalTransferenciaOpen(true)
   }
 
@@ -313,7 +330,7 @@ export function CuentasPage() {
               }}
             >
               <span style={{ display: 'block', fontSize: '0.7rem', color: 'var(--color-text-muted)', fontWeight: 600 }}>
-                🏦 En Bancos
+                En Bancos
               </span>
               <strong style={{ fontSize: '1rem', fontFamily: 'var(--font-mono)', color: '#fbbf24' }}>
                 {formatMoney(statsCuentas.enBancos)}
@@ -330,7 +347,7 @@ export function CuentasPage() {
               }}
             >
               <span style={{ display: 'block', fontSize: '0.7rem', color: 'var(--color-text-muted)', fontWeight: 600 }}>
-                📱 En Billeteras / Nu
+                En Billeteras / Nu
               </span>
               <strong style={{ fontSize: '1rem', fontFamily: 'var(--font-mono)', color: '#c084fc' }}>
                 {formatMoney(statsCuentas.enBilleteras)}
@@ -347,7 +364,7 @@ export function CuentasPage() {
               }}
             >
               <span style={{ display: 'block', fontSize: '0.7rem', color: 'var(--color-text-muted)', fontWeight: 600 }}>
-                💵 En Efectivo
+                En Efectivo
               </span>
               <strong style={{ fontSize: '1rem', fontFamily: 'var(--font-mono)', color: '#34d399' }}>
                 {formatMoney(statsCuentas.enEfectivo)}
@@ -364,7 +381,7 @@ export function CuentasPage() {
               }}
             >
               <span style={{ display: 'block', fontSize: '0.7rem', color: 'var(--color-text-muted)', fontWeight: 600 }}>
-                👦 Fondo Hermano
+                Fondo Hermano
               </span>
               <strong style={{ fontSize: '1rem', fontFamily: 'var(--font-mono)', color: '#22d3ee' }}>
                 {formatMoney(statsCuentas.enFondoHermano)}
@@ -556,7 +573,7 @@ export function CuentasPage() {
                     title="Modificar saldo o nombre de esta cuenta"
                     style={{ fontSize: '0.78rem', padding: '0.35rem 0.65rem' }}
                   >
-                    ✏️ Editar Saldo
+                    Editar Saldo
                   </button>
                   <button
                     type="button"
@@ -571,7 +588,7 @@ export function CuentasPage() {
 
                 <button
                   type="button"
-                  className="btn ghost sm icon-only"
+                  className="btn ghost sm"
                   style={{ color: 'var(--color-expense)' }}
                   onClick={() => {
                     if (confirm(`¿Eliminar la cuenta "${c.nombre}"?`)) {
@@ -581,7 +598,7 @@ export function CuentasPage() {
                   title="Eliminar cuenta"
                   aria-label="Eliminar cuenta"
                 >
-                  ✕
+                  Eliminar
                 </button>
               </div>
             </article>
@@ -589,119 +606,268 @@ export function CuentasPage() {
         })}
       </div>
 
-      {/* Historial de Transferencias entre Cuentas */}
-      <div className="panel">
+      {/* ========================================================================= */}
+      {/* HISTORIAL Y EXTRACTO DE MOVIMIENTOS POR CUENTA */}
+      {/* ========================================================================= */}
+      <div className="panel" style={{ marginTop: '2rem' }}>
         <div className="panel-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.75rem' }}>
           <div>
-            <h2 className="panel-title">
-              Historial de Transferencias entre Cuentas
+            <h2 className="panel-title" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+              Movimientos & Flujo de Fondos por Cuenta
             </h2>
             <span style={{ fontSize: '0.8rem', color: 'var(--color-text-muted)' }}>
-              Registro de movimientos de dinero entre tus bancos, billeteras y efectivo.
+              Detalle de ingresos, compras, servicios, transferencias y pagos de cada banco o billetera.
             </span>
           </div>
-          <button type="button" className="btn secondary sm" onClick={() => setModalTransferenciaOpen(true)}>
-            + Nueva Transferencia
-          </button>
+
+          <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', flexWrap: 'wrap' }}>
+            <div className="tabs-nav" style={{ margin: 0 }}>
+              <button
+                type="button"
+                className={`tab-btn ${tabHistorialCuentas === 'MOVIMIENTOS' ? 'active' : ''}`}
+                onClick={() => setTabHistorialCuentas('MOVIMIENTOS')}
+                style={{ fontSize: '0.775rem', padding: '0.35rem 0.75rem' }}
+              >
+                Todos los Movimientos ({movimientosDeCuentas.length})
+              </button>
+              <button
+                type="button"
+                className={`tab-btn ${tabHistorialCuentas === 'TRANSFERENCIAS' ? 'active' : ''}`}
+                onClick={() => setTabHistorialCuentas('TRANSFERENCIAS')}
+                style={{ fontSize: '0.775rem', padding: '0.35rem 0.75rem' }}
+              >
+                Transferencias ({state.transferencias?.length || 0})
+              </button>
+            </div>
+
+            <button type="button" className="btn secondary sm" onClick={() => setModalTransferenciaOpen(true)}>
+              + Nueva Transferencia
+            </button>
+          </div>
         </div>
 
-        <div className="table-container">
-          <table className="table-wide">
-            <thead>
-              <tr>
-                <th>Fecha</th>
-                <th>Cuenta Origen</th>
-                <th style={{ textAlign: 'center', width: '40px' }}></th>
-                <th>Cuenta Destino</th>
-                <th>Concepto / Motivo</th>
-                <th style={{ textAlign: 'right' }}>Monto Transferido</th>
-              </tr>
-            </thead>
-            <tbody>
-              {(state.transferencias || []).map((t) => {
-                const origen = state.cuentas.find((c) => c.id === t.cuentaOrigenId)
-                const destino = state.cuentas.find((c) => c.id === t.cuentaDestinoId)
-                const visualOrigen = origen ? getAccountVisualInfo(origen) : null
-                const visualDestino = destino ? getAccountVisualInfo(destino) : null
+        {/* Barra de Filtros de la Tabla */}
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.75rem', padding: '0.75rem 1rem', backgroundColor: 'var(--color-bg-alt)', borderBottom: '1px solid var(--color-border)' }}>
+          <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', flexWrap: 'wrap' }}>
+            {/* Filtro Período */}
+            <div className="tabs-nav" style={{ margin: 0 }}>
+              <button
+                type="button"
+                className={`tab-btn ${periodoFiltroMovs === 'MES_ACTUAL' ? 'active' : ''}`}
+                onClick={() => setPeriodoFiltroMovs('MES_ACTUAL')}
+                style={{ fontSize: '0.75rem', padding: '0.25rem 0.6rem' }}
+              >
+                Mes Actual ({formatMonthYear(selectedMonth)})
+              </button>
+              <button
+                type="button"
+                className={`tab-btn ${periodoFiltroMovs === 'TODOS' ? 'active' : ''}`}
+                onClick={() => setPeriodoFiltroMovs('TODOS')}
+                style={{ fontSize: '0.75rem', padding: '0.25rem 0.6rem' }}
+              >
+                Todos
+              </button>
+            </div>
 
-                return (
-                  <tr key={t.id}>
-                    <td style={{ fontSize: '0.825rem', color: 'var(--color-text-muted)', whiteSpace: 'nowrap' }}>
-                      {formatDate(t.fecha)}
-                    </td>
-                    <td>
-                      <span
+            {/* Selector de Cuenta */}
+            <select
+              className="form-select"
+              value={cuentaFiltroMovs}
+              onChange={(e) => setCuentaFiltroMovs(e.target.value)}
+              style={{ padding: '0.3rem 0.6rem', fontSize: '0.8rem', width: 'auto', minWidth: '160px' }}
+            >
+              <option value="TODAS">Todas las Cuentas</option>
+              {state.cuentas.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.nombre} ({formatMoney(c.saldo)})
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <input
+            type="text"
+            className="form-input"
+            placeholder="Buscar en movimientos..."
+            value={busquedaCuentaMovs}
+            onChange={(e) => setBusquedaCuentaMovs(e.target.value)}
+            style={{ maxWidth: '220px', padding: '0.3rem 0.6rem', fontSize: '0.8rem' }}
+          />
+        </div>
+
+        {tabHistorialCuentas === 'MOVIMIENTOS' ? (
+          <div className="table-container">
+            <table className="table-wide">
+              <thead>
+                <tr>
+                  <th>Fecha</th>
+                  <th>Cuenta / Medio</th>
+                  <th>Módulo</th>
+                  <th>Concepto / Descripción</th>
+                  <th style={{ textAlign: 'right' }}>Monto</th>
+                </tr>
+              </thead>
+              <tbody>
+                {movimientosDeCuentas.map((m) => {
+                  const isIngreso = m.tipo === 'INGRESO'
+                  const isTransf = m.tipo === 'TRANSFERENCIA'
+
+                  return (
+                    <tr key={`${m.modulo}-${m.id}`}>
+                      <td style={{ fontSize: '0.8rem', color: 'var(--color-text-muted)', whiteSpace: 'nowrap' }}>
+                        {formatDate(m.fecha)}
+                      </td>
+                      <td>
+                        <span
+                          style={{
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '0.35rem',
+                            padding: '0.2rem 0.55rem',
+                            borderRadius: 'var(--radius-pill)',
+                            fontSize: '0.75rem',
+                            fontWeight: 600,
+                            backgroundColor: `${m.medioPagoColor || '#3b82f6'}18`,
+                            border: `1px solid ${m.medioPagoColor || '#3b82f6'}40`,
+                            color: m.medioPagoColor || 'var(--color-text-main)',
+                          }}
+                        >
+                          <span>{m.medioPagoLabel}</span>
+                        </span>
+                      </td>
+                      <td>
+                        <span className={`badge ${isIngreso ? 'income' : isTransf ? 'info' : 'neutral'}`} style={{ fontSize: '0.7rem' }}>
+                          {m.moduloLabel}
+                        </span>
+                      </td>
+                      <td>
+                        <strong>{m.descripcion}</strong>
+                        {m.notas && (
+                          <span style={{ display: 'block', fontSize: '0.72rem', color: 'var(--color-text-muted)', marginTop: '2px' }}>
+                            {m.notas}
+                          </span>
+                        )}
+                      </td>
+                      <td
                         style={{
-                          display: 'inline-flex',
-                          alignItems: 'center',
-                          gap: '0.35rem',
-                          padding: '0.25rem 0.6rem',
-                          borderRadius: 'var(--radius-pill)',
-                          fontSize: '0.78rem',
-                          fontWeight: 600,
-                          backgroundColor: visualOrigen?.bgGlow || 'var(--color-bg-alt)',
-                          border: `1px solid ${visualOrigen?.borderColor || 'var(--color-border)'}`,
-                          color: visualOrigen?.textColor || 'var(--color-text-main)',
+                          textAlign: 'right',
+                          fontFamily: 'var(--font-mono)',
+                          fontWeight: 700,
+                          fontSize: '0.9rem',
+                          color: isIngreso ? 'var(--color-income)' : isTransf ? '#06b6d4' : 'var(--color-expense)',
                         }}
                       >
-                        <span>{visualOrigen?.icon || '🏛️'}</span>
-                        <span>{origen?.nombre || 'Cuenta Origen'}</span>
-                      </span>
-                    </td>
-                    <td style={{ textAlign: 'center', color: 'var(--color-text-muted)', fontWeight: 700 }}>
-                      ➔
-                    </td>
-                    <td>
-                      <span
-                        style={{
-                          display: 'inline-flex',
-                          alignItems: 'center',
-                          gap: '0.35rem',
-                          padding: '0.25rem 0.6rem',
-                          borderRadius: 'var(--radius-pill)',
-                          fontSize: '0.78rem',
-                          fontWeight: 600,
-                          backgroundColor: visualDestino?.bgGlow || 'var(--color-bg-alt)',
-                          border: `1px solid ${visualDestino?.borderColor || 'var(--color-border)'}`,
-                          color: visualDestino?.textColor || 'var(--color-text-main)',
-                        }}
-                      >
-                        <span>{visualDestino?.icon || '🏛️'}</span>
-                        <span>{destino?.nombre || 'Cuenta Destino'}</span>
-                      </span>
-                    </td>
-                    <td style={{ color: 'var(--color-text-main)' }}>
-                      {t.descripcion || 'Transferencia entre cuentas'}
-                    </td>
-                    <td style={{ textAlign: 'right', fontFamily: 'var(--font-mono)', fontWeight: 700, color: 'var(--color-income)' }}>
-                      {formatMoney(t.monto)}
+                        {isIngreso ? '+' : isTransf ? '' : '-'} {formatMoney(m.monto)}
+                      </td>
+                    </tr>
+                  )
+                })}
+                {movimientosDeCuentas.length === 0 && (
+                  <tr>
+                    <td colSpan={5} style={{ textAlign: 'center', padding: '2.5rem 1rem', color: 'var(--color-text-muted)' }}>
+                      No se encontraron movimientos registrados para esta cuenta / período.
                     </td>
                   </tr>
-                )
-              })}
-              {(!state.transferencias || state.transferencias.length === 0) && (
+                )}
+              </tbody>
+            </table>
+          </div>
+        ) : (
+          <div className="table-container">
+            <table className="table-wide">
+              <thead>
                 <tr>
-                  <td colSpan={6} style={{ textAlign: 'center', padding: '3rem 1.5rem', color: 'var(--color-text-muted)' }}>
-                    <div style={{ fontSize: '2.5rem', marginBottom: '0.5rem' }}>⇄</div>
-                    <p style={{ fontSize: '1rem', fontWeight: 600, color: 'var(--color-text-main)', marginBottom: '0.25rem' }}>
-                      No hay transferencias registradas entre cuentas.
-                    </p>
-                    <span style={{ fontSize: '0.8rem' }}>
-                      Usa el botón "+ Nueva Transferencia" para mover fondos de Bancolombia a Nequi, Daviplata o Efectivo.
-                    </span>
-                  </td>
+                  <th>Fecha</th>
+                  <th>Cuenta Origen</th>
+                  <th style={{ textAlign: 'center', width: '40px' }}></th>
+                  <th>Cuenta Destino</th>
+                  <th>Concepto / Motivo</th>
+                  <th style={{ textAlign: 'right' }}>Monto Transferido</th>
                 </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
+              </thead>
+              <tbody>
+                {(state.transferencias || []).map((t) => {
+                  const origen = state.cuentas.find((c) => c.id === t.cuentaOrigenId)
+                  const destino = state.cuentas.find((c) => c.id === t.cuentaDestinoId)
+                  const visualOrigen = origen ? getAccountVisualInfo(origen) : null
+                  const visualDestino = destino ? getAccountVisualInfo(destino) : null
+
+                  return (
+                    <tr key={t.id}>
+                      <td style={{ fontSize: '0.825rem', color: 'var(--color-text-muted)', whiteSpace: 'nowrap' }}>
+                        {formatDate(t.fecha)}
+                      </td>
+                      <td>
+                        <span
+                          style={{
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '0.35rem',
+                            padding: '0.25rem 0.6rem',
+                            borderRadius: 'var(--radius-pill)',
+                            fontSize: '0.78rem',
+                            fontWeight: 600,
+                            backgroundColor: visualOrigen?.bgGlow || 'var(--color-bg-alt)',
+                            border: `1px solid ${visualOrigen?.borderColor || 'var(--color-border)'}`,
+                            color: visualOrigen?.textColor || 'var(--color-text-main)',
+                          }}
+                        >
+                          <span>{origen?.nombre || 'Cuenta Origen'}</span>
+                        </span>
+                      </td>
+                      <td style={{ textAlign: 'center', color: 'var(--color-text-muted)', fontWeight: 700 }}>
+                        &rarr;
+                      </td>
+                      <td>
+                        <span
+                          style={{
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '0.35rem',
+                            padding: '0.25rem 0.6rem',
+                            borderRadius: 'var(--radius-pill)',
+                            fontSize: '0.78rem',
+                            fontWeight: 600,
+                            backgroundColor: visualDestino?.bgGlow || 'var(--color-bg-alt)',
+                            border: `1px solid ${visualDestino?.borderColor || 'var(--color-border)'}`,
+                            color: visualDestino?.textColor || 'var(--color-text-main)',
+                          }}
+                        >
+                          <span>{destino?.nombre || 'Cuenta Destino'}</span>
+                        </span>
+                      </td>
+                      <td style={{ color: 'var(--color-text-main)' }}>
+                        {t.descripcion || 'Transferencia entre cuentas'}
+                      </td>
+                      <td style={{ textAlign: 'right', fontFamily: 'var(--font-mono)', fontWeight: 700, color: '#06b6d4' }}>
+                        {formatMoney(t.monto)}
+                      </td>
+                    </tr>
+                  )
+                })}
+                {(!state.transferencias || state.transferencias.length === 0) && (
+                  <tr>
+                    <td colSpan={6} style={{ textAlign: 'center', padding: '3rem 1.5rem', color: 'var(--color-text-muted)' }}>
+                      <p style={{ fontSize: '1rem', fontWeight: 600, color: 'var(--color-text-main)', marginBottom: '0.25rem' }}>
+                        No hay transferencias registradas entre cuentas.
+                      </p>
+                      <span style={{ fontSize: '0.8rem' }}>
+                        Usa el botón "+ Nueva Transferencia" para mover fondos de Bancolombia a Nequi, Daviplata o Efectivo.
+                      </span>
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
 
       {/* MODAL CREAR / EDITAR CUENTA */}
       <Modal
         isOpen={modalCuentaOpen}
         onClose={() => setModalCuentaOpen(false)}
-        title={editingCuentaId ? '✏️ Editar Cuenta Financiera' : '🏛️ Agregar Cuenta Financiera'}
+        title={editingCuentaId ? 'Editar Cuenta Financiera' : 'Agregar Cuenta Financiera'}
       >
         <form onSubmit={handleSaveCuenta} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
           <div className="form-group">
@@ -720,9 +886,9 @@ export function CuentasPage() {
             <div className="form-group">
               <label>Tipo de Cuenta</label>
               <select className="form-select" value={tipo} onChange={(e) => setTipo(e.target.value as typeof tipo)}>
-                <option value="BANCO">🏛️ Banco / Cuenta de Ahorros</option>
-                <option value="BILLETERA_DIGITAL">📱 Billetera Digital (Nequi / Daviplata / Nu)</option>
-                <option value="EFECTIVO">💵 Efectivo Físico / Billetera</option>
+                <option value="BANCO">Banco / Cuenta de Ahorros</option>
+                <option value="BILLETERA_DIGITAL">Billetera Digital (Nequi / Daviplata / Nu)</option>
+                <option value="EFECTIVO">Efectivo Físico / Billetera</option>
               </select>
             </div>
 

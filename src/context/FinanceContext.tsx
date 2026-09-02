@@ -27,12 +27,17 @@ import { firebaseFinanceService } from '../firebase/financeFirebase'
 import { isFirebaseConfigured } from '../firebase/config'
 import { useAuth } from '../auth/AuthContext'
 import {
+  initialCuentas,
   initialTarjetas,
 } from '../services/initialData'
 import {
   calcularCuotaMensual,
   calcularCuotasMes,
 } from '../utils/financialCalculations'
+import {
+  getLocalCurrentMonth,
+  getLocalTodayISO,
+} from '../utils/formatters'
 
 export interface ToastInfo {
   id: string
@@ -253,6 +258,59 @@ function sanitizeAndDeduplicateState(stateObj: FullFinanceState): FullFinanceSta
     } as FullFinanceState
   }
 
+  // Reseteo limpio a 0 solicitado por el usuario para empezar de cero sin datos
+  const sanitizeZeroReset = (st: FullFinanceState): FullFinanceState => {
+    const rawAny = st as unknown as Record<string, unknown>
+    if (rawAny._cleanStateReset2026V2) {
+      return st
+    }
+
+    const cleanCuentas = (st.cuentas && st.cuentas.length > 0 ? st.cuentas : initialCuentas).map((c) => ({
+      ...c,
+      saldo: 0,
+    }))
+
+    const cleanTarjetas = (st.tarjetas && st.tarjetas.length > 0 ? st.tarjetas : initialTarjetas).map((t) => ({
+      ...t,
+      ultimoExtracto: undefined,
+    }))
+
+    return {
+      cuentas: cleanCuentas,
+      tarjetas: cleanTarjetas,
+      arriendos: [],
+      servicios: [],
+      comprasHogar: [],
+      alimentacion: [],
+      ingresos: [],
+      gastosPersonales: [],
+      gastosRecurrentes: [],
+      comprasCuotas: [],
+      presupuestos: [],
+      transferencias: [],
+      version: 2,
+      lastUpdated: new Date().toISOString(),
+      _cleanStateReset2026V2: true,
+      _relojPaymentsRevertedV1: true,
+    } as unknown as FullFinanceState
+  }
+
+  const sanitizeIngresos = (ingresos: IngresoPersonal[] | undefined): IngresoPersonal[] => {
+    if (!ingresos || !Array.isArray(ingresos)) return []
+    return ingresos
+      .filter((ing) => {
+        const desc = (ing.descripcion || '').toLowerCase()
+        if (desc.includes('abono sucursal') || desc.includes('abono a su tarjeta') || ing.monto < 0) {
+          return false
+        }
+        return true
+      })
+      .map((ing) => ({
+        ...ing,
+        monto: Math.abs(ing.monto),
+      }))
+  }
+
   const baseSanitized: FullFinanceState = {
     ...stateObj,
     cuentas: fixUniqueIds(ensureDefaultCuentas(stateObj.cuentas), 'cuenta'),
@@ -261,14 +319,15 @@ function sanitizeAndDeduplicateState(stateObj: FullFinanceState): FullFinanceSta
     gastosPersonales: fixUniqueIds(stateObj.gastosPersonales, 'gp'),
     alimentacion: fixUniqueIds(stateObj.alimentacion, 'alim'),
     comprasHogar: fixUniqueIds(stateObj.comprasHogar, 'comp-hogar'),
-    ingresos: fixUniqueIds(stateObj.ingresos, 'ing'),
+    ingresos: fixUniqueIds(sanitizeIngresos(stateObj.ingresos), 'ing'),
     servicios: fixUniqueIds(stateObj.servicios, 'serv'),
     arriendos: fixUniqueIds(stateObj.arriendos, 'arr'),
     gastosRecurrentes: fixUniqueIds(stateObj.gastosRecurrentes, 'rec'),
     transferencias: fixUniqueIds(stateObj.transferencias, 'transf'),
   }
 
-  return sanitizeRelojFix(baseSanitized)
+  const zeroChecked = sanitizeZeroReset(baseSanitized)
+  return sanitizeRelojFix(zeroChecked)
 }
 
 export function FinanceProvider({ children }: { children: ReactNode }) {
@@ -285,11 +344,22 @@ export function FinanceProvider({ children }: { children: ReactNode }) {
       storageService.saveLocalState(sanitized, userId)
       return sanitized
     }
-    return storageService.createSampleState()
+    return storageService.createEmptyState()
   })
-  const today = new Date()
-  const defaultMonth = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}`
-  const [selectedMonth, setSelectedMonth] = useState<string>(defaultMonth)
+  const defaultMonth = getLocalCurrentMonth()
+  const [selectedMonth, setSelectedMonthState] = useState<string>(() => {
+    return localStorage.getItem('contabilidad_selected_month') || defaultMonth
+  })
+
+  const setSelectedMonth = useCallback((month: string) => {
+    setSelectedMonthState(month)
+    try {
+      localStorage.setItem('contabilidad_selected_month', month)
+    } catch {
+      // ignore
+    }
+  }, [])
+
   const [toasts, setToasts] = useState<ToastInfo[]>([])
   const [isFirebaseActive, setIsFirebaseActive] = useState(isFirebaseConfigured())
 
@@ -337,7 +407,6 @@ export function FinanceProvider({ children }: { children: ReactNode }) {
         if (userId && isFirebaseConfigured()) {
           firebaseFinanceService.saveToFirestore(next, userId).catch((err) => {
             console.error('Error guardando en Firestore:', err)
-            // No bloquea la experiencia del usuario porque ya está seguro en el almacenamiento local
           })
         }
         return next
@@ -358,17 +427,25 @@ export function FinanceProvider({ children }: { children: ReactNode }) {
       userId,
       (remoteState) => {
         if (remoteState && typeof remoteState === 'object') {
-          const merged: FullFinanceState = {
+          const sanitized = sanitizeAndDeduplicateState({
             ...storageService.createEmptyState(),
             ...remoteState,
+          })
+          setState(sanitized)
+          storageService.saveLocalState(sanitized, userId)
+
+          // Si el estado remoto no tenía la marca de reseteo a 0, actualizarlo en Firestore
+          const rawRemote = remoteState as unknown as Record<string, unknown>
+          if (!rawRemote._cleanStateReset2026V2) {
+            firebaseFinanceService.saveToFirestore(sanitized, userId).catch((err) => {
+              console.error('Error actualizando estado en Firestore:', err)
+            })
           }
-          setState(merged)
-          storageService.saveLocalState(merged, userId)
           setIsFirebaseActive(true)
         } else if (remoteState === null) {
           // Documento inicial nuevo en Firestore para este usuario
           const local = storageService.loadLocalState(userId)
-          const initial = local || storageService.createEmptyState()
+          const initial = local ? sanitizeAndDeduplicateState(local) : storageService.createEmptyState()
           setState(initial)
           storageService.saveLocalState(initial, userId)
           firebaseFinanceService.saveToFirestore(initial, userId).catch((err) => {
@@ -621,7 +698,7 @@ export function FinanceProvider({ children }: { children: ReactNode }) {
 
         const nuevoPagado = !item.pagado
         const targetCuentaId = cuentaId || item.cuentaId || prev.cuentas[0]?.id
-        const fechaPago = nuevoPagado ? new Date().toISOString().slice(0, 10) : undefined
+        const fechaPago = nuevoPagado ? getLocalTodayISO() : undefined
 
         const nextCuentas = (prev.cuentas || []).map((c) => {
           if (c.id === targetCuentaId) {
@@ -708,7 +785,7 @@ export function FinanceProvider({ children }: { children: ReactNode }) {
 
         const nuevoPagado = !item.pagado
         const targetCuentaId = cuentaId || item.cuentaId || prev.cuentas[0]?.id
-        const fechaPago = nuevoPagado ? new Date().toISOString().slice(0, 10) : undefined
+        const fechaPago = nuevoPagado ? getLocalTodayISO() : undefined
         const esPagadoPorMama = (item.responsablePago || 'MAMA') === 'MAMA'
 
         let nextCuentas = prev.cuentas || []
@@ -1204,7 +1281,7 @@ export function FinanceProvider({ children }: { children: ReactNode }) {
 
         const pagoDetalle = {
           numeroCuota: proximaCuota,
-          fechaPago: new Date().toISOString().slice(0, 10),
+          fechaPago: getLocalTodayISO(),
           montoPagado: compra.valorCuota,
           abonoCapital,
           interes,
@@ -1334,7 +1411,7 @@ export function FinanceProvider({ children }: { children: ReactNode }) {
         )
 
         // 2. Avanzar 1 cuota en cada una de las compras diferidas activas de esta tarjeta
-        const todayStr = new Date().toISOString().slice(0, 10)
+        const todayStr = getLocalTodayISO()
         const nextComprasCuotas = (prev.comprasCuotas || []).map((compra) => {
           if (
             compra.tarjetaId !== tarjetaId ||
@@ -1517,15 +1594,20 @@ export function FinanceProvider({ children }: { children: ReactNode }) {
 
   // Limpiar toda la base de datos y reiniciar en blanco
   const clearAllData = useCallback(() => {
-    const clean = storageService.createEmptyState()
+    const clean: FullFinanceState = {
+      ...storageService.createEmptyState(),
+      _cleanStateReset2026V2: true,
+      _relojPaymentsRevertedV1: true,
+    } as unknown as FullFinanceState
     setState(clean)
     storageService.saveLocalState(clean, userId)
+    storageService.saveLocalState(clean, undefined)
     if (userId && isFirebaseConfigured()) {
       firebaseFinanceService.saveToFirestore(clean, userId).catch((err) => {
         console.error('Error al limpiar Firestore:', err)
       })
     }
-    showToast('Datos limpiados', 'Tu cuenta está ahora en blanco para tus datos reales', 'info')
+    showToast('Datos reiniciados', 'Todas las cuentas y módulos han quedado en 0', 'info')
   }, [userId, showToast])
 
   // Cargar plantilla de datos de prueba

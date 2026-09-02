@@ -221,9 +221,9 @@ export function PresupuestosPage() {
                           : 'expense'
                       }`}
                     >
-                      {estado.estado === 'normal' && '✓ En Rango'}
-                      {estado.estado === 'alerta' && '⚠️ Cerca del Límite'}
-                      {estado.estado === 'excedido' && '🚨 Sobrepasado'}
+                      {estado.estado === 'normal' && 'En Rango'}
+                      {estado.estado === 'alerta' && 'Cerca del Límite'}
+                      {estado.estado === 'excedido' && 'Sobrepasado'}
                     </span>
                     <button
                       type="button"
@@ -231,7 +231,7 @@ export function PresupuestosPage() {
                       onClick={() => deletePresupuesto(p.id)}
                       title="Eliminar presupuesto"
                     >
-                      ✕
+                      Eliminar
                     </button>
                   </div>
                 </div>
@@ -283,16 +283,16 @@ export function PresupuestosPage() {
       </div>
 
       {/* MODAL CONFIGURAR PRESUPUESTO */}
-      <Modal isOpen={modalOpen} onClose={() => setModalOpen(false)} title="📊 Asignar Presupuesto Mensual">
+      <Modal isOpen={modalOpen} onClose={() => setModalOpen(false)} title="Asignar Presupuesto Mensual">
         <form onSubmit={handleSave} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
           <div className="form-group">
             <label>Grupo / Categoría *</label>
             <select className="form-select" value={grupo} onChange={(e) => setGrupo(e.target.value as typeof grupo)}>
-              <option value="HOGAR">🏠 Hogar, Vivienda & Arriendo</option>
-              <option value="SERVICIOS">💡 Servicios Públicos e Internet</option>
-              <option value="ALIMENTACION">🍲 Alimentación & Mercado</option>
-              <option value="PERSONAL">🎉 Finanzas Personales, Celular & Ocio</option>
-              <option value="TARJETAS">💳 Cuotas de Tarjetas de Crédito</option>
+              <option value="HOGAR">Hogar, Vivienda & Arriendo</option>
+              <option value="SERVICIOS">Servicios Públicos e Internet</option>
+              <option value="ALIMENTACION">Alimentación & Mercado</option>
+              <option value="PERSONAL">Finanzas Personales, Celular & Ocio</option>
+              <option value="TARJETAS">Cuotas de Tarjetas de Crédito</option>
             </select>
           </div>
 

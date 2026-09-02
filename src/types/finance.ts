@@ -154,7 +154,7 @@ export interface GastoPersonal {
 
 export interface GastoRecurrenteFijo {
   id: string
-  nombre: string // ej. '🅿️ Parqueadero mensual', '📱 Plan Celular', '🎬 Netflix', '🍙 Crunchyroll'
+  nombre: string // ej. 'Parqueadero mensual', 'Plan Celular', 'Netflix', 'Crunchyroll'
   categoria: CategoriaGastoPersonal
   monto: Dinero
   diaCobro: number // 1 al 31 (día habitual de cobro del mes)

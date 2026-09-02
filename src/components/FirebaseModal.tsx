@@ -75,7 +75,7 @@ service cloud.firestore {
   }
 
   return (
-    <Modal isOpen={isOpen} onClose={onClose} title="🔥 Configuración de Firebase & Nube" maxWidth="640px">
+    <Modal isOpen={isOpen} onClose={onClose} title="Configuración de Firebase & Nube" maxWidth="640px">
       <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
         {/* Status Indicator */}
         <div
@@ -175,7 +175,7 @@ service cloud.firestore {
                 style={{ position: 'absolute', top: '8px', right: '8px', fontSize: '0.75rem' }}
                 onClick={copyRules}
               >
-                📋 Copiar Reglas
+                Copiar Reglas
               </button>
             </div>
             <p>4. Haz clic en <strong>Publicar (Publish)</strong> en la consola.</p>

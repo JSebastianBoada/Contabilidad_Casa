@@ -158,6 +158,17 @@ export function auditarYConciliarExtracto(
 
   // 2. Evaluar cada transacción del extracto
   transacciones.forEach((tx, idx) => {
+    // Caso especial: Abono o Pago de Tarjeta de Crédito (pago de extracto del ciclo anterior)
+    if (tx.clasificacionTarjeta === 'PAGO_ABONO' || (filtroTarjetaId && tx.tipo === 'CREDITO')) {
+      items.push({
+        id: `aud-${tx.id || idx}`,
+        transaccionExtracto: tx,
+        estado: 'CONCILIADO',
+        notasAuditoria: 'Abono / Pago a la tarjeta de crédito correspondiente al ciclo de facturación anterior.',
+      })
+      return
+    }
+
     // Caso especial: Cargo financiero bancario (4x1000, cuota manejo, etc.)
     if (tx.esCargoBancario) {
       items.push({

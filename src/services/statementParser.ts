@@ -1,7 +1,7 @@
 import * as pdfjsLib from 'pdfjs-dist'
 import pdfjsWorker from 'pdfjs-dist/build/pdf.worker.min.mjs?url'
 import type { CategoriaGastoPersonal } from '../types/finance'
-import { cleanDateText } from '../utils/formatters'
+import { cleanDateText, getLocalTodayISO, getLocalCurrentMonth } from '../utils/formatters'
 
 // Configuración del worker local de PDF.js para Vite (100% offline y sin CDN externa)
 if (typeof window !== 'undefined') {
@@ -249,7 +249,7 @@ export function parseFecha(raw: string): string {
     return `${isoMatch[1]}-${isoMatch[2].padStart(2, '0')}-${isoMatch[3].padStart(2, '0')}`
   }
 
-  return new Date().toISOString().slice(0, 10)
+  return getLocalTodayISO()
 }
 
 // Frases de encabezados o resumen que deben ser ignoradas
@@ -385,14 +385,14 @@ export function parseExtractoBancolombia(texto: string): ResultadoExtraccion {
       !descLower.includes('pago exp')
     const tipo: 'DEBITO' | 'CREDITO' = esAbono ? 'CREDITO' : 'DEBITO'
 
-    let montoFacturado = montos[0]
-    let valorOriginal = montos[0]
+    let montoFacturado = Math.abs(montos[0])
+    let valorOriginal = Math.abs(montos[0])
     let saldoPendiente = 0
 
     if (cuotasTotales > 1 || seccionActual === 'MOVIMIENTOS_ANTERIORES') {
-      valorOriginal = montos[0]
-      montoFacturado = montos.length >= 2 ? montos[1] : montos[0]
-      saldoPendiente = montos.length >= 3 ? montos[montos.length - 1] : 0
+      valorOriginal = Math.abs(montos[0])
+      montoFacturado = Math.abs(montos.length >= 2 ? montos[1] : montos[0])
+      saldoPendiente = Math.abs(montos.length >= 3 ? montos[montos.length - 1] : 0)
     }
 
     const esCargo = esCargoFinanciero(descripcion)
@@ -435,7 +435,7 @@ export function parseExtractoBancolombia(texto: string): ResultadoExtraccion {
     totalDebitos,
     totalCreditos,
     bancoIdentificado: 'BANCOLOMBIA',
-    mesDetectado: transacciones[0]?.fecha.slice(0, 7) || '2026-08',
+    mesDetectado: transacciones[0]?.fecha.slice(0, 7) || getLocalCurrentMonth(),
   }
 }
 
@@ -618,7 +618,7 @@ export function parseExtractoNu(texto: string): ResultadoExtraccion {
     totalDebitos,
     totalCreditos,
     bancoIdentificado: 'NU',
-    mesDetectado: transacciones[0]?.fecha.slice(0, 7) || '2026-08',
+    mesDetectado: transacciones[0]?.fecha.slice(0, 7) || getLocalCurrentMonth(),
   }
 }
 

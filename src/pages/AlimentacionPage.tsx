@@ -3,7 +3,7 @@ import { useFinance } from '../context/FinanceContext'
 import { Modal } from '../components/Modal'
 import { DatePickerInput } from '../components/DatePickerInput'
 import { DonutChart } from '../components/Charts'
-import { formatMoney, formatDate, formatMonthYear } from '../utils/formatters'
+import { formatMoney, formatDate, formatMonthYear, getLocalTodayISO } from '../utils/formatters'
 import type { TipoComida, BeneficiarioComida, OrigenComida } from '../types/finance'
 
 export function AlimentacionPage() {
@@ -29,7 +29,7 @@ export function AlimentacionPage() {
   const [descripcion, setDescripcion] = useState('Almuerzo menú del día (Yo + Hermano)')
   const [lugar, setLugar] = useState('')
   const [monto, setMonto] = useState('18000')
-  const [fecha, setFecha] = useState(new Date().toISOString().slice(0, 10))
+  const [fecha, setFecha] = useState(getLocalTodayISO())
   const [cuentaId, setCuentaId] = useState(state.cuentas[0]?.id || '')
   const [esFinDeSemana, setEsFinDeSemana] = useState(false)
   const [reembolsado, setReembolsado] = useState(false)
@@ -158,7 +158,7 @@ export function AlimentacionPage() {
   // Registro rápido con 1 solo clic desde la cabecera
   function registroRapido(desc: string, tipo: TipoComida, ben: BeneficiarioComida, porciones: number, unit: number, origen: OrigenComida = 'RESTAURANTE_AFUERA') {
     addAlimentacion({
-      fecha: new Date().toISOString().slice(0, 10),
+      fecha: getLocalTodayISO(),
       tipoComida: tipo,
       descripcion: desc,
       monto: porciones * unit,
@@ -242,7 +242,7 @@ export function AlimentacionPage() {
         }}
       >
         <span style={{ fontSize: '0.825rem', fontWeight: 600, color: 'var(--color-text-main)' }}>
-          ⚡ Registro Rápido de Almuerzos Hoy:
+          Registro Rápido de Almuerzos Hoy:
         </span>
         <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
           <button
@@ -251,7 +251,7 @@ export function AlimentacionPage() {
             onClick={() => registroRapido('Almuerzo Corrientazo (Yo)', 'ALMUERZO', 'YO', 1, 9000)}
             title="Registrar 1 almuerzo de $9.000 para mí"
           >
-            👤 1 Corrientazo ($9.000)
+            1 Corrientazo ($9.000)
           </button>
           <button
             type="button"
@@ -259,7 +259,7 @@ export function AlimentacionPage() {
             onClick={() => registroRapido('Almuerzo Ejecutivo (Yo)', 'ALMUERZO', 'YO', 1, 14000)}
             title="Registrar 1 almuerzo de $14.000 para mí"
           >
-            👤 1 Ejecutivo ($14.000)
+            1 Ejecutivo ($14.000)
           </button>
           <button
             type="button"
@@ -267,7 +267,7 @@ export function AlimentacionPage() {
             onClick={() => registroRapido('2 Almuerzos Corrientazos (Yo + Hermano)', 'ALMUERZO', 'AMBOS', 2, 9000)}
             title="Registrar 2 almuerzos de $9.000 para mí y mi hermano"
           >
-            👥 2 Corrientazos ($18.000)
+            2 Corrientazos ($18.000)
           </button>
           <button
             type="button"
@@ -275,7 +275,7 @@ export function AlimentacionPage() {
             onClick={() => registroRapido('2 Almuerzos Ejecutivos (Yo + Hermano)', 'ALMUERZO', 'AMBOS', 2, 14000)}
             title="Registrar 2 almuerzos de $14.000 para mí y mi hermano"
           >
-            👥 2 Ejecutivos ($28.000)
+            2 Ejecutivos ($28.000)
           </button>
         </div>
       </div>
@@ -285,13 +285,13 @@ export function AlimentacionPage() {
         {/* Aporte de Mamá para Alimentación */}
         <article className="stat-card" style={{ borderLeft: '4px solid #db2777' }}>
           <div className="stat-card-top">
-            <span className="stat-card-title">👩‍👧 Aporte de Mamá para Comida</span>
+            <span className="stat-card-title">Aporte de Mamá para Comida</span>
             <span className="badge" style={{ backgroundColor: 'rgba(219, 39, 119, 0.12)', color: '#db2777' }}>Apoyo Familiar</span>
           </div>
           <div className="stat-value" style={{ color: '#db2777' }}>{formatMoney(totalAportesMamaComida)}</div>
           <span className="stat-subtext">
             {saldoAporteComida >= 0
-              ? `✓ Quedan +${formatMoney(saldoAporteComida)} del aporte`
+              ? `Quedan +${formatMoney(saldoAporteComida)} del aporte`
               : `Aporte tuyo adicional: ${formatMoney(Math.abs(saldoAporteComida))}`}
           </span>
         </article>
@@ -299,7 +299,7 @@ export function AlimentacionPage() {
         {/* Almuerzos */}
         <article className="stat-card" style={{ borderLeft: '4px solid #10b981' }}>
           <div className="stat-card-top">
-            <span className="stat-card-title">🥗 Almuerzos del Mes</span>
+            <span className="stat-card-title">Almuerzos del Mes</span>
             <span className="badge income">Diario</span>
           </div>
           <div className="stat-value">{formatMoney(totalAlmuerzo)}</div>
@@ -309,7 +309,7 @@ export function AlimentacionPage() {
         {/* Cuentas con Hermano */}
         <article className="stat-card" style={{ borderLeft: '4px solid #8b5cf6' }}>
           <div className="stat-card-top">
-            <span className="stat-card-title">👥 Para Ambos (Yo + Hermano)</span>
+            <span className="stat-card-title">Para Ambos (Yo + Hermano)</span>
             <span className="badge credit">Compartido</span>
           </div>
           <div className="stat-value">{formatMoney(totalAmbosCompartido)}</div>
@@ -321,7 +321,7 @@ export function AlimentacionPage() {
         {/* Mercado y Desayunos */}
         <article className="stat-card" style={{ borderLeft: '4px solid #3b82f6' }}>
           <div className="stat-card-top">
-            <span className="stat-card-title">🛒 Mercado & Desayunos</span>
+            <span className="stat-card-title">Mercado & Desayunos</span>
             <span className="badge primary">Hogar</span>
           </div>
           <div className="stat-value">{formatMoney(totalMercado + totalDesayuno)}</div>
@@ -342,12 +342,12 @@ export function AlimentacionPage() {
 
         <div className="panel" style={{ justifyContent: 'center' }}>
           <div className="panel-header">
-            <h2 className="panel-title">💡 Diagnóstico de Ahorro: Semana vs Fin de Semana</h2>
+            <h2 className="panel-title">Diagnóstico de Ahorro: Semana vs Fin de Semana</h2>
           </div>
           <div style={{ padding: '0.5rem 0', display: 'flex', flexDirection: 'column', gap: '0.85rem' }}>
             <div style={{ padding: '0.85rem', backgroundColor: 'var(--color-bg-alt)', borderRadius: 'var(--radius-md)', border: '1px solid var(--color-border)' }}>
               <strong style={{ fontSize: '0.85rem', color: 'var(--color-text-main)', display: 'block', marginBottom: '0.25rem' }}>
-                🍳 Cocinar los Fines de Semana:
+                Cocinar los Fines de Semana:
               </strong>
               <span style={{ fontSize: '0.8rem', color: 'var(--color-text-muted)', lineHeight: 1.45 }}>
                 Comprar 2 almuerzos de $14.000 un sábado y domingo = <strong>$56.000</strong> el fin de semana ($224.000/mes). Cocinar en casa con ingredientes del mercado reduce ese costo a menos de la mitad.
@@ -356,7 +356,7 @@ export function AlimentacionPage() {
 
             <div style={{ padding: '0.85rem', backgroundColor: 'var(--color-bg-alt)', borderRadius: 'var(--radius-md)', border: '1px solid var(--color-border)' }}>
               <strong style={{ fontSize: '0.85rem', color: 'var(--color-text-main)', display: 'block', marginBottom: '0.25rem' }}>
-                🥗 Alternar Corrientazo ($9k) y Ejecutivo ($14k):
+                Alternar Corrientazo ($9k) y Ejecutivo ($14k):
               </strong>
               <span style={{ fontSize: '0.8rem', color: 'var(--color-text-muted)', lineHeight: 1.45 }}>
                 Para 2 personas, elegir corrientazo ($18.000) 3 días a la semana en vez de ejecutivo ($28.000) te ahorra <strong>$120.000 libres al mes</strong>.
@@ -385,28 +385,28 @@ export function AlimentacionPage() {
               className={`btn sm ${filterTipo === 'ALMUERZO' ? 'primary' : 'secondary'}`}
               onClick={() => setFilterTipo('ALMUERZO')}
             >
-              🥗 Almuerzos
+              Almuerzos
             </button>
             <button
               type="button"
               className={`btn sm ${filterTipo === 'DESAYUNO' ? 'primary' : 'secondary'}`}
               onClick={() => setFilterTipo('DESAYUNO')}
             >
-              🍳 Desayunos
+              Desayunos
             </button>
             <button
               type="button"
               className={`btn sm ${filterTipo === 'COMIDA' ? 'primary' : 'secondary'}`}
               onClick={() => setFilterTipo('COMIDA')}
             >
-              🍲 Cenas
+              Cenas
             </button>
             <button
               type="button"
               className={`btn sm ${filterTipo === 'MERCADO_GENERAL' ? 'primary' : 'secondary'}`}
               onClick={() => setFilterTipo('MERCADO_GENERAL')}
             >
-              🛒 Mercado
+              Mercado
             </button>
           </div>
         </div>
@@ -429,21 +429,21 @@ export function AlimentacionPage() {
               className={`btn ghost sm ${filterBeneficiario === 'AMBOS' ? 'active' : ''}`}
               onClick={() => setFilterBeneficiario('AMBOS')}
             >
-              👥 Ambos
+              Ambos
             </button>
             <button
               type="button"
               className={`btn ghost sm ${filterBeneficiario === 'YO' ? 'active' : ''}`}
               onClick={() => setFilterBeneficiario('YO')}
             >
-              👤 Solo Yo
+              Solo Yo
             </button>
             <button
               type="button"
               className={`btn ghost sm ${filterBeneficiario === 'HERMANO' ? 'active' : ''}`}
               onClick={() => setFilterBeneficiario('HERMANO')}
             >
-              👦 Hermano
+              Hermano
             </button>
           </div>
 
@@ -463,14 +463,14 @@ export function AlimentacionPage() {
               className={`btn ghost sm ${filterOrigen === 'RESTAURANTE_AFUERA' ? 'active' : ''}`}
               onClick={() => setFilterOrigen('RESTAURANTE_AFUERA')}
             >
-              🍽️ Comprado Afuera
+              Comprado Afuera
             </button>
             <button
               type="button"
               className={`btn ghost sm ${filterOrigen === 'COCINADO_EN_CASA' ? 'active' : ''}`}
               onClick={() => setFilterOrigen('COCINADO_EN_CASA')}
             >
-              🍳 En Casa / Finde
+              En Casa / Finde
             </button>
           </div>
         </div>
@@ -498,10 +498,10 @@ export function AlimentacionPage() {
                 if (item.tipoComida === 'ALMUERZO') badgeClass = 'income'
                 if (item.tipoComida === 'COMIDA') badgeClass = 'credit'
 
-                let benText = '👥 Ambos'
-                if (item.beneficiario === 'YO') benText = '👤 Solo Yo'
-                if (item.beneficiario === 'HERMANO') benText = '👦 Mi Hermano'
-                if (item.beneficiario === 'FAMILIA') benText = '👨‍👩‍👧 Familia'
+                let benText = 'Ambos'
+                if (item.beneficiario === 'YO') benText = 'Solo Yo'
+                if (item.beneficiario === 'HERMANO') benText = 'Mi Hermano'
+                if (item.beneficiario === 'FAMILIA') benText = 'Familia'
 
                 return (
                   <tr key={item.id}>
@@ -527,13 +527,13 @@ export function AlimentacionPage() {
                       <strong>{item.descripcion}</strong>
                       {item.lugarOProveedor && (
                         <span style={{ display: 'block', fontSize: '0.725rem', color: 'var(--color-text-muted)' }}>
-                          📍 {item.lugarOProveedor}
+                          {item.lugarOProveedor}
                         </span>
                       )}
                     </td>
                     <td>
                       <span style={{ fontSize: '0.75rem', color: item.origenComida === 'COCINADO_EN_CASA' ? '#10b981' : 'var(--color-text-muted)' }}>
-                        {item.origenComida === 'COCINADO_EN_CASA' ? '🍳 En casa' : '🍽️ Comprado'}
+                        {item.origenComida === 'COCINADO_EN_CASA' ? 'En casa' : 'Comprado'}
                         {item.esFinDeSemana ? ' (Finde)' : ''}
                       </span>
                     </td>
@@ -548,7 +548,7 @@ export function AlimentacionPage() {
                         onClick={() => deleteAlimentacion(item.id)}
                         title="Eliminar registro"
                       >
-                        ✕
+                        Eliminar
                       </button>
                     </td>
                   </tr>
@@ -567,12 +567,12 @@ export function AlimentacionPage() {
       </div>
 
       {/* MODAL REGISTRAR ALIMENTACIÓN AVANZADO */}
-      <Modal isOpen={modalOpen} onClose={() => setModalOpen(false)} title="🍲 Registrar Alimentación / Almuerzo">
+      <Modal isOpen={modalOpen} onClose={() => setModalOpen(false)} title="Registrar Alimentación / Almuerzo">
         <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
           {/* Presets rápidos dentro del modal */}
           <div style={{ backgroundColor: 'var(--color-bg-alt)', padding: '0.75rem', borderRadius: 'var(--radius-md)', border: '1px solid var(--color-border)' }}>
             <span style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--color-text-muted)', display: 'block', marginBottom: '0.4rem' }}>
-              ⚡ Cargar opción común:
+              Cargar opción común:
             </span>
             <div style={{ display: 'flex', gap: '0.4rem', flexWrap: 'wrap' }}>
               <button
@@ -626,10 +626,10 @@ export function AlimentacionPage() {
                 value={tipoComida}
                 onChange={(e) => setTipoComida(e.target.value as typeof tipoComida)}
               >
-                <option value="ALMUERZO">🥗 Almuerzo (Mediodía / Menú)</option>
-                <option value="DESAYUNO">🍳 Desayuno (Panadería / Café / Huevos)</option>
-                <option value="COMIDA">🍲 Comida / Cena</option>
-                <option value="MERCADO_GENERAL">🛒 Mercado Grande (Supermercado)</option>
+                <option value="ALMUERZO">Almuerzo (Mediodía / Menú)</option>
+                <option value="DESAYUNO">Desayuno (Panadería / Café / Huevos)</option>
+                <option value="COMIDA">Comida / Cena</option>
+                <option value="MERCADO_GENERAL">Mercado Grande (Supermercado)</option>
               </select>
             </div>
 
@@ -645,10 +645,10 @@ export function AlimentacionPage() {
                   if (b === 'AMBOS') handlePorcionesChange(2)
                 }}
               >
-                <option value="AMBOS">👥 Ambos (Yo + Mi hermano)</option>
-                <option value="YO">👤 Solo para mí</option>
-                <option value="HERMANO">👦 Para mi hermano</option>
-                <option value="FAMILIA">👨‍👩‍👧 Familiar</option>
+                <option value="AMBOS">Ambos (Yo + Mi hermano)</option>
+                <option value="YO">Solo para mí</option>
+                <option value="HERMANO">Para mi hermano</option>
+                <option value="FAMILIA">Familiar</option>
               </select>
             </div>
           </div>
@@ -725,8 +725,8 @@ export function AlimentacionPage() {
                 value={origenComida}
                 onChange={(e) => setOrigenComida(e.target.value as OrigenComida)}
               >
-                <option value="RESTAURANTE_AFUERA">🍽️ Comprado afuera (Restaurante / Domicilio)</option>
-                <option value="COCINADO_EN_CASA">🍳 Cocinado en casa (Mercado / Fin de semana)</option>
+                <option value="RESTAURANTE_AFUERA">Comprado afuera (Restaurante / Domicilio)</option>
+                <option value="COCINADO_EN_CASA">Cocinado en casa (Mercado / Fin de semana)</option>
               </select>
             </div>
 
@@ -761,7 +761,7 @@ export function AlimentacionPage() {
                   checked={esFinDeSemana}
                   onChange={(e) => setEsFinDeSemana(e.target.checked)}
                 />
-                📅 Es fin de semana
+                Es fin de semana
               </label>
               <label style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', cursor: 'pointer', fontSize: '0.85rem' }}>
                 <input
@@ -769,7 +769,7 @@ export function AlimentacionPage() {
                   checked={reembolsado}
                   onChange={(e) => setReembolsado(e.target.checked)}
                 />
-                💵 Mi hermano ya reembolsó su parte
+                Mi hermano ya reembolsó su parte
               </label>
             </div>
           </div>

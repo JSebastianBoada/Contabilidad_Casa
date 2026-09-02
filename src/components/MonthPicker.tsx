@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react'
-import { formatMonthYear } from '../utils/formatters'
+import { formatMonthYear, getLocalCurrentMonth } from '../utils/formatters'
 
 interface MonthPickerProps {
   value: string // 'YYYY-MM'
@@ -26,8 +26,9 @@ export function MonthPicker({ value, onChange, label }: MonthPickerProps) {
   const [isOpen, setIsOpen] = useState(false)
   const containerRef = useRef<HTMLDivElement>(null)
 
+  const currentLocalMonth = getLocalCurrentMonth()
   // Extraer año y mes
-  const [yearStr, monthStr] = (value || new Date().toISOString().slice(0, 7)).split('-')
+  const [yearStr, monthStr] = (value || currentLocalMonth).split('-')
   const [pickerYear, setPickerYear] = useState<number>(Number(yearStr) || new Date().getFullYear())
 
   useEffect(() => {
@@ -84,12 +85,9 @@ export function MonthPicker({ value, onChange, label }: MonthPickerProps) {
 
   // Ir al mes actual del sistema
   function handleIrAMesActual() {
-    const hoy = new Date().toISOString().slice(0, 7)
-    onChange(hoy)
+    onChange(currentLocalMonth)
     setIsOpen(false)
   }
-
-  const hoyStr = new Date().toISOString().slice(0, 7)
 
   return (
     <div className="custom-month-picker-container" ref={containerRef} style={{ position: 'relative', display: 'inline-flex', alignItems: 'center' }}>
@@ -137,7 +135,6 @@ export function MonthPicker({ value, onChange, label }: MonthPickerProps) {
             transition: 'all 0.15s ease',
           }}
         >
-          <span style={{ fontSize: '0.9rem' }}>📅</span>
           <span>{formatMonthYear(value)}</span>
           <svg
             viewBox="0 0 24 24"
@@ -257,7 +254,7 @@ export function MonthPicker({ value, onChange, label }: MonthPickerProps) {
           >
             {MESES.map((m) => {
               const isSelected = `${pickerYear}-${m.num}` === value
-              const isCurrentCalendarMonth = `${pickerYear}-${m.num}` === hoyStr
+              const isCurrentCalendarMonth = `${pickerYear}-${m.num}` === currentLocalMonth
 
               return (
                 <button
@@ -335,7 +332,7 @@ export function MonthPicker({ value, onChange, label }: MonthPickerProps) {
                 gap: '0.4rem',
               }}
             >
-              ⚡ Ir al mes actual ({formatMonthYear(hoyStr)})
+              Ir al mes actual ({formatMonthYear(currentLocalMonth)})
             </button>
           </div>
         </div>

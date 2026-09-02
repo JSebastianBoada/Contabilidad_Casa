@@ -2,7 +2,7 @@ import { useState, type FormEvent } from 'react'
 import { Modal } from './Modal'
 import { DatePickerInput } from './DatePickerInput'
 import { useFinance } from '../context/FinanceContext'
-import { formatMoney } from '../utils/formatters'
+import { formatMoney, getLocalTodayISO } from '../utils/formatters'
 import { calcularCuotaMensual } from '../utils/financialCalculations'
 
 interface QuickAddModalProps {
@@ -25,7 +25,7 @@ export function QuickAddModal({ isOpen, onClose }: QuickAddModalProps) {
   } = useFinance()
 
   const [category, setCategory] = useState<MainCategory>('ALIMENTACION')
-  const [fecha, setFecha] = useState(new Date().toISOString().slice(0, 10))
+  const [fecha, setFecha] = useState(getLocalTodayISO())
   const [monto, setMonto] = useState('')
   const [descripcion, setDescripcion] = useState('')
   const [medioPago, setMedioPago] = useState(
@@ -141,7 +141,7 @@ export function QuickAddModal({ isOpen, onClose }: QuickAddModalProps) {
       : 0
 
   return (
-    <Modal isOpen={isOpen} onClose={onClose} title="⚡ Registrar Movimiento Rápido" maxWidth="580px">
+    <Modal isOpen={isOpen} onClose={onClose} title="Registrar Movimiento Rápido" maxWidth="580px">
       <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1.2rem' }}>
         {/* Selector de Categoría Principal */}
         <div className="form-group">
@@ -152,35 +152,35 @@ export function QuickAddModal({ isOpen, onClose }: QuickAddModalProps) {
               className={`btn sm ${category === 'ALIMENTACION' ? 'primary' : 'secondary'}`}
               onClick={() => setCategory('ALIMENTACION')}
             >
-              🍲 Comida
+              Comida
             </button>
             <button
               type="button"
               className={`btn sm ${category === 'HOGAR' ? 'primary' : 'secondary'}`}
               onClick={() => setCategory('HOGAR')}
             >
-              🏠 Hogar
+              Hogar
             </button>
             <button
               type="button"
               className={`btn sm ${category === 'PERSONAL_GASTO' ? 'primary' : 'secondary'}`}
               onClick={() => setCategory('PERSONAL_GASTO')}
             >
-              🎉 Personal
+              Personal
             </button>
             <button
               type="button"
               className={`btn sm ${category === 'INGRESO' ? 'primary' : 'secondary'}`}
               onClick={() => setCategory('INGRESO')}
             >
-              💰 Ingreso
+              Ingreso
             </button>
             <button
               type="button"
               className={`btn sm ${category === 'TARJETA_CUOTA' ? 'primary' : 'secondary'}`}
               onClick={() => setCategory('TARJETA_CUOTA')}
             >
-              💳 Tarjeta
+              Tarjeta
             </button>
           </div>
         </div>
@@ -201,7 +201,7 @@ export function QuickAddModal({ isOpen, onClose }: QuickAddModalProps) {
                   setDescripcion('1 Almuerzo Corrientazo (Yo)')
                 }}
               >
-                👤 1 Corrientazo ($9k)
+                1 Corrientazo ($9k)
               </button>
               <button
                 type="button"
@@ -214,7 +214,7 @@ export function QuickAddModal({ isOpen, onClose }: QuickAddModalProps) {
                   setDescripcion('1 Almuerzo Ejecutivo (Yo)')
                 }}
               >
-                👤 1 Ejecutivo ($14k)
+                1 Ejecutivo ($14k)
               </button>
               <button
                 type="button"
@@ -227,7 +227,7 @@ export function QuickAddModal({ isOpen, onClose }: QuickAddModalProps) {
                   setDescripcion('2 Almuerzos Corrientazos (Yo + Hermano)')
                 }}
               >
-                👥 2 Corrientazos ($18k)
+                2 Corrientazos ($18k)
               </button>
               <button
                 type="button"
@@ -240,7 +240,7 @@ export function QuickAddModal({ isOpen, onClose }: QuickAddModalProps) {
                   setDescripcion('2 Almuerzos Ejecutivos (Yo + Hermano)')
                 }}
               >
-                👥 2 Ejecutivos ($28k)
+                2 Ejecutivos ($28k)
               </button>
             </div>
 
@@ -252,10 +252,10 @@ export function QuickAddModal({ isOpen, onClose }: QuickAddModalProps) {
                   value={tipoComida}
                   onChange={(e) => setTipoComida(e.target.value as typeof tipoComida)}
                 >
-                  <option value="ALMUERZO">🥗 Almuerzo / Menú del día</option>
-                  <option value="DESAYUNO">🍳 Desayuno / Panadería / Cafés</option>
-                  <option value="COMIDA">🍲 Comida / Cena en casa</option>
-                  <option value="MERCADO_GENERAL">🛒 Mercado Grande (Supermercado)</option>
+                  <option value="ALMUERZO">Almuerzo / Menú del día</option>
+                  <option value="DESAYUNO">Desayuno / Panadería / Cafés</option>
+                  <option value="COMIDA">Comida / Cena en casa</option>
+                  <option value="MERCADO_GENERAL">Mercado Grande (Supermercado)</option>
                 </select>
               </div>
 
@@ -266,10 +266,10 @@ export function QuickAddModal({ isOpen, onClose }: QuickAddModalProps) {
                   value={beneficiarioComida}
                   onChange={(e) => setBeneficiarioComida(e.target.value as typeof beneficiarioComida)}
                 >
-                  <option value="AMBOS">👥 Ambos (Yo + Mi hermano)</option>
-                  <option value="YO">👤 Solo para mí</option>
-                  <option value="HERMANO">👦 Para mi hermano</option>
-                  <option value="FAMILIA">👨‍👩‍👧 Familiar</option>
+                  <option value="AMBOS">Ambos (Yo + Mi hermano)</option>
+                  <option value="YO">Solo para mí</option>
+                  <option value="HERMANO">Para mi hermano</option>
+                  <option value="FAMILIA">Familiar</option>
                 </select>
               </div>
             </div>
@@ -285,8 +285,8 @@ export function QuickAddModal({ isOpen, onClose }: QuickAddModalProps) {
                 value={subHogar}
                 onChange={(e) => setSubHogar(e.target.value as typeof subHogar)}
               >
-                <option value="COMPRA">🛒 Compra de Hogar (Aseo, Muebles)</option>
-                <option value="SERVICIO">💡 Pago de Servicio Público</option>
+                <option value="COMPRA">Compra de Hogar (Aseo, Muebles)</option>
+                <option value="SERVICIO">Pago de Servicio Público</option>
               </select>
             </div>
             {subHogar === 'COMPRA' ? (
@@ -312,10 +312,10 @@ export function QuickAddModal({ isOpen, onClose }: QuickAddModalProps) {
                   value={tipoServicio}
                   onChange={(e) => setTipoServicio(e.target.value as typeof tipoServicio)}
                 >
-                  <option value="ENERGIA">⚡ Energía / Luz</option>
-                  <option value="GAS">🔥 Gas Natural</option>
-                  <option value="AGUA">💧 Agua / Acueducto</option>
-                  <option value="INTERNET">🌐 Internet / TV</option>
+                  <option value="ENERGIA">Energía / Luz</option>
+                  <option value="GAS">Gas Natural</option>
+                  <option value="AGUA">Agua / Acueducto</option>
+                  <option value="INTERNET">Internet / TV</option>
                   <option value="OTRO">Otro Servicio</option>
                 </select>
               </div>
@@ -331,13 +331,13 @@ export function QuickAddModal({ isOpen, onClose }: QuickAddModalProps) {
               value={catPersonal}
               onChange={(e) => setCatPersonal(e.target.value as typeof catPersonal)}
             >
-              <option value="PARQUEADERO">🅿️ Parqueadero / Estacionamiento</option>
-              <option value="CELULAR">📱 Servicio de Celular / Plan Móvil</option>
-              <option value="GASOLINA">⛽ Gasolina / Combustible / Tanqueo</option>
-              <option value="SUSCRIPCIONES">📺 Suscripciones (Netflix, Crunchyroll, Spotify, Gym)</option>
-              <option value="RESTAURANTES_COMIDAS_FUERA">🍔 Salidas a comer / Restaurantes / Domicilios</option>
-              <option value="PARTIDOS_OCIO_EVENTOS">⚽ Partidos / Canchas / Ocio / Eventos / Cine</option>
-              <option value="REGALOS">🎁 Regalos y Cumpleaños</option>
+              <option value="PARQUEADERO">Parqueadero / Estacionamiento</option>
+              <option value="CELULAR">Servicio de Celular / Plan Móvil</option>
+              <option value="GASOLINA">Gasolina / Combustible / Tanqueo</option>
+              <option value="SUSCRIPCIONES">Suscripciones (Netflix, Crunchyroll, Spotify, Gym)</option>
+              <option value="RESTAURANTES_COMIDAS_FUERA">Salidas a comer / Restaurantes / Domicilios</option>
+              <option value="PARTIDOS_OCIO_EVENTOS">Partidos / Canchas / Ocio / Eventos / Cine</option>
+              <option value="REGALOS">Regalos y Cumpleaños</option>
               <option value="OTROS">Otros Gastos Personales</option>
             </select>
           </div>
@@ -359,12 +359,12 @@ export function QuickAddModal({ isOpen, onClose }: QuickAddModalProps) {
                 }
               }}
             >
-              <option value="NOMINA">💼 Nómina / Salario Fijo</option>
-              <option value="APORTE_HERMANO">👦 Aporte / Envío de Hermano (Almuerzos & Gastos)</option>
-              <option value="APORTE_MAMA">👩‍👧 Aporte / Apoyo de Mamá (Comida / Hogar)</option>
-              <option value="HORAS_EXTRAS">⏰ Horas Extras / Recargos</option>
-              <option value="BONIFICACION">🌟 Bonificación</option>
-              <option value="FREELANCE">💻 Trabajo Independiente / Freelance</option>
+              <option value="NOMINA">Nómina / Salario Fijo</option>
+              <option value="APORTE_HERMANO">Aporte / Envío de Hermano (Almuerzos & Gastos)</option>
+              <option value="APORTE_MAMA">Aporte / Apoyo de Mamá (Comida / Hogar)</option>
+              <option value="HORAS_EXTRAS">Horas Extras / Recargos</option>
+              <option value="BONIFICACION">Bonificación</option>
+              <option value="FREELANCE">Trabajo Independiente / Freelance</option>
               <option value="OTRO">Otra Entrada</option>
             </select>
           </div>
@@ -455,19 +455,19 @@ export function QuickAddModal({ isOpen, onClose }: QuickAddModalProps) {
               onChange={(e) => setMedioPago(e.target.value)}
             >
               {category !== 'INGRESO' && state.tarjetas.length > 0 && (
-                <optgroup label="💳 Tarjetas de Crédito (1 Cuota - Mes a Mes)">
+                <optgroup label="Tarjetas de Crédito (1 Cuota - Mes a Mes)">
                   {state.tarjetas.map((t) => (
                     <option key={t.id} value={`tarjeta:${t.id}`}>
-                      💳 {t.nombre} (•••• {t.ultimos4Digitos}) - 1 Cuota
+                      {t.nombre} (•••• {t.ultimos4Digitos}) - 1 Cuota
                     </option>
                   ))}
                 </optgroup>
               )}
               {state.cuentas.length > 0 && (
-                <optgroup label={category === 'INGRESO' ? '🏦 Cuenta de Depósito' : '🏦 Cuentas de Ahorros / Billeteras'}>
+                <optgroup label={category === 'INGRESO' ? 'Cuenta de Depósito' : 'Cuentas de Ahorros / Billeteras'}>
                   {state.cuentas.map((c) => (
                     <option key={c.id} value={`cuenta:${c.id}`}>
-                      🏦 {c.nombre} (Saldo: {formatMoney(c.saldo)})
+                      {c.nombre} (Saldo: {formatMoney(c.saldo)})
                     </option>
                   ))}
                 </optgroup>
@@ -480,7 +480,7 @@ export function QuickAddModal({ isOpen, onClose }: QuickAddModalProps) {
         {category === 'TARJETA_CUOTA' && cuotaProyectada > 0 && (
           <div className="banner info" style={{ fontSize: '0.85rem' }}>
             <span>
-              💡 <strong>Cálculo Financiero:</strong> Pagarás <strong>{cuotasTotales} cuotas</strong> de aproximadamente{' '}
+              <strong>Cálculo Financiero:</strong> Pagarás <strong>{cuotasTotales} cuotas</strong> de aproximadamente{' '}
               <strong>{formatMoney(cuotaProyectada)}</strong> al mes.
             </span>
           </div>

@@ -273,21 +273,9 @@ Pago minimo $981.827,83
     let movimientosAgregados = 0
     transaccionesExtraidas.forEach((tx) => {
       if (tx.tipo === 'CREDITO') {
-        // Pago / Abono
-        const existeIngreso = state.ingresos.some(
-          (ing) => ing.monto === tx.monto && (ing.fecha === tx.fecha || ing.descripcion === tx.descripcion)
-        )
-        if (!existeIngreso) {
-          addIngreso({
-            fecha: tx.fecha,
-            tipo: 'NOMINA',
-            descripcion: tx.descripcion,
-            monto: tx.monto,
-            periodo: 'MENSUAL',
-            cuentaId: state.cuentas[0]?.id || 'cta-1',
-          })
-          movimientosAgregados++
-        }
+        // Abono o Pago realizado a la Tarjeta (no es salario/nómina, es pago de extracto)
+        // Se cuenta como movimiento conciliado del extracto
+        movimientosAgregados++
       } else if (
         tx.clasificacionTarjeta === 'COMPRA_CUOTAS' ||
         tx.seccionExtracto === 'MOVIMIENTOS_ANTERIORES' ||
@@ -385,17 +373,17 @@ Pago minimo $981.827,83
 
   // Opciones de categoría para selección rápida en tabla
   const CATEGORIAS_GASTO_OPTIONS: { key: CategoriaGastoPersonal; label: string }[] = [
-    { key: 'CELULAR', label: '📱 Celular / Telefonía' },
-    { key: 'GASOLINA', label: '⛽ Gasolina / Combustible' },
-    { key: 'PARQUEADERO', label: '🅿️ Parqueadero' },
-    { key: 'SUSCRIPCIONES', label: '🎬 Suscripciones / Streaming' },
-    { key: 'RESTAURANTES_COMIDAS_FUERA', label: '🍔 Restaurantes / Comidas fuera' },
-    { key: 'TRANSPORTE', label: '🚕 Transporte / Talleres' },
-    { key: 'PARTIDOS_OCIO_EVENTOS', label: '⚽ Ocio / Eventos' },
-    { key: 'SEGUROS_SALUD', label: '💊 Salud / Seguros' },
-    { key: 'ROPA_CUIDADO', label: '👕 Ropa / Cuidado Personal' },
-    { key: 'REGALOS', label: '🎁 Regalos' },
-    { key: 'OTROS', label: '📦 Otros Gastos' },
+    { key: 'CELULAR', label: 'Celular / Telefonía' },
+    { key: 'GASOLINA', label: 'Gasolina / Combustible' },
+    { key: 'PARQUEADERO', label: 'Parqueadero' },
+    { key: 'SUSCRIPCIONES', label: 'Suscripciones / Streaming' },
+    { key: 'RESTAURANTES_COMIDAS_FUERA', label: 'Restaurantes / Comidas fuera' },
+    { key: 'TRANSPORTE', label: 'Transporte / Talleres' },
+    { key: 'PARTIDOS_OCIO_EVENTOS', label: 'Ocio / Eventos' },
+    { key: 'SEGUROS_SALUD', label: 'Salud / Seguros' },
+    { key: 'ROPA_CUIDADO', label: 'Ropa / Cuidado Personal' },
+    { key: 'REGALOS', label: 'Regalos' },
+    { key: 'OTROS', label: 'Otros Gastos' },
   ]
 
   // Buscador de coincidencias en Compras a Cuotas
@@ -492,22 +480,27 @@ Pago minimo $981.827,83
     tx: TransaccionExtracto,
     catOverride?: CategoriaGastoPersonal
   ) {
-    const tarjetaIdFinal = medioAuditado.startsWith('tarjeta:')
+    const isTarjeta = medioAuditado.startsWith('tarjeta:')
+    const tarjetaIdFinal = isTarjeta
       ? medioAuditado.replace('tarjeta:', '')
       : state.tarjetas[0]?.id || 'tc-1'
 
     const cuentaId = state.cuentas[0]?.id || 'cta-1'
 
-    if (tx.tipo === 'CREDITO') {
+    if (tx.tipo === 'CREDITO' || tx.clasificacionTarjeta === 'PAGO_ABONO') {
+      if (isTarjeta) {
+        showToast('Pago de Tarjeta conciliado', `El abono de ${formatMoney(Math.abs(tx.monto))} corresponde al pago de la factura anterior.`)
+        return
+      }
       addIngreso({
         fecha: tx.fecha,
-        tipo: 'NOMINA',
+        tipo: 'OTRO',
         descripcion: tx.descripcion,
-        monto: tx.monto,
+        monto: Math.abs(tx.monto),
         periodo: 'MENSUAL',
         cuentaId,
       })
-      showToast('Abono registrado', `Se registró abono de "${tx.descripcion}" (${formatMoney(tx.monto)})`)
+      showToast('Abono registrado', `Se registró abono de "${tx.descripcion}" (${formatMoney(Math.abs(tx.monto))})`)
     } else if (
       tx.clasificacionTarjeta === 'COMPRA_CUOTAS' ||
       tx.seccionExtracto === 'MOVIMIENTOS_ANTERIORES' ||
@@ -525,7 +518,7 @@ Pago minimo $981.827,83
         fecha: tx.fecha,
         categoria: catFinal,
         descripcion: tx.descripcion,
-        monto: tx.monto,
+        monto: Math.abs(tx.monto),
         cuentaId: undefined,
         tarjetaId: tarjetaIdFinal,
         metodoPago: 'TARJETA_CREDITO',
@@ -548,17 +541,24 @@ Pago minimo $981.827,83
       ? medioAuditado.replace('cuenta:', '')
       : state.cuentas[0]?.id
 
+    let countImportados = 0
+
     faltantes.forEach((item) => {
       const tx = item.transaccionExtracto
-      if (tx.tipo === 'CREDITO') {
+      if (tx.tipo === 'CREDITO' || tx.clasificacionTarjeta === 'PAGO_ABONO') {
+        if (isTarjeta) {
+          // Es un pago a la tarjeta de crédito del extracto anterior, no un ingreso de salario
+          return
+        }
         addIngreso({
           fecha: tx.fecha,
-          tipo: 'NOMINA',
+          tipo: 'OTRO',
           descripcion: tx.descripcion,
-          monto: tx.monto,
+          monto: Math.abs(tx.monto),
           periodo: 'MENSUAL',
           cuentaId: cuentaId || state.cuentas[0]?.id,
         })
+        countImportados++
       } else if (
         isTarjeta &&
         (tx.clasificacionTarjeta === 'COMPRA_CUOTAS' ||
@@ -566,7 +566,7 @@ Pago minimo $981.827,83
           (tx.cuotasTotales && tx.cuotasTotales > 1))
       ) {
         const cuotasTotales = tx.cuotasTotales || 1
-        const montoTotal = tx.valorMovimientoOriginal || tx.monto * cuotasTotales
+        const montoTotal = Math.abs(tx.valorMovimientoOriginal || tx.monto * cuotasTotales)
 
         addCompraCuota({
           tarjetaId: tarjetaId || state.tarjetas[0]?.id || 'tc-nu',
@@ -578,23 +578,25 @@ Pago minimo $981.827,83
           tasaInteresMensual: 0,
           fechaInicioCobro: tx.fecha.slice(0, 7),
         })
+        countImportados++
       } else {
         addGastoPersonal({
           fecha: tx.fecha,
-          categoria: tx.categoriaSugerida || (tx.esCargoBancario ? 'OTROS' : 'OTROS'),
+          categoria: tx.categoriaSugerida || 'OTROS',
           descripcion: tx.descripcion,
-          monto: tx.monto,
+          monto: Math.abs(tx.monto),
           cuentaId: !isTarjeta ? cuentaId : undefined,
           tarjetaId: isTarjeta ? tarjetaId : undefined,
           metodoPago: isTarjeta ? 'TARJETA_CREDITO' : 'CUENTA_DEBITO',
           cuotas: isTarjeta ? 1 : undefined,
         })
+        countImportados++
       }
     })
 
     showToast(
       'Importación masiva completa',
-      `Se registraron ${faltantes.length} movimientos faltantes en la app`
+      `Se registraron ${countImportados} movimientos en la app`
     )
   }
 
@@ -636,7 +638,7 @@ Pago minimo $981.827,83
       >
         <div>
           <strong style={{ fontSize: '1rem', display: 'block', color: 'var(--color-text-main)' }}>
-            🎯 1. ¿A qué Tarjeta de Crédito vas a cargar este Extracto?
+            1. ¿A qué Tarjeta de Crédito vas a cargar este Extracto?
           </strong>
           <span style={{ fontSize: '0.8rem', color: 'var(--color-text-muted)' }}>
             Selecciona tu tarjeta para vincular los cupos, pagos mínimos y movimientos del PDF directamente a ella.
@@ -666,7 +668,7 @@ Pago minimo $981.827,83
                   showToast('Tarjeta seleccionada', `El extracto se asignará a ${t.nombre}`)
                 }}
               >
-                {isNu ? '🟣' : '🏦'} {t.nombre} (•••• {t.ultimos4Digitos})
+                {t.nombre} (•••• {t.ultimos4Digitos})
               </button>
             )
           })}
@@ -683,7 +685,7 @@ Pago minimo $981.827,83
             }}
             title="Restablecer tarjetas para prueba limpia"
           >
-            🧹 Limpiar Tarjetas
+            Limpiar Tarjetas
           </button>
         </div>
       </div>
@@ -697,14 +699,14 @@ Pago minimo $981.827,83
               className={`tab-btn ${metodoCarga === 'PDF' ? 'active' : ''}`}
               onClick={() => setMetodoCarga('PDF')}
             >
-              📄 Cargar Archivo PDF del Extracto
+              Cargar Archivo PDF del Extracto
             </button>
             <button
               type="button"
               className={`tab-btn ${metodoCarga === 'TEXTO' ? 'active' : ''}`}
               onClick={() => setMetodoCarga('TEXTO')}
             >
-              📝 Pegar Texto del Banco
+              Pegar Texto del Banco
             </button>
             <button
               type="button"
@@ -714,7 +716,7 @@ Pago minimo $981.827,83
                 handleCargarEjemplo()
               }}
             >
-              ⚡ Cargar Extracto de Demostración
+              Cargar Extracto de Demostración
             </button>
           </div>
         </div>
@@ -746,7 +748,12 @@ Pago minimo $981.827,83
                   }
                 }}
               />
-              <div style={{ fontSize: '2.5rem', marginBottom: '0.5rem' }}>📑</div>
+              <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '0.75rem', color: 'var(--color-primary-light)' }}>
+                <svg viewBox="0 0 24 24" width="36" height="36" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                  <polyline points="14 2 14 8 20 8" />
+                </svg>
+              </div>
               {archivoPdf ? (
                 <div>
                   <strong style={{ fontSize: '1.05rem', color: 'var(--color-primary)' }}>
@@ -766,7 +773,7 @@ Pago minimo $981.827,83
               )}
             </div>
 
-            {/* Campo de Contraseña para PDFs protegidos (Visible y accesible) */}
+            {/* Campo de Contraseña para PDFs protegidos */}
             <div
               className={`form-group ${requierePassword ? 'banner warning' : ''}`}
               style={{
@@ -778,7 +785,6 @@ Pago minimo $981.827,83
               }}
             >
               <label style={{ fontWeight: 600, display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-                <span>🔒</span>
                 <span>{requierePassword ? 'PDF Protegido: Ingresa tu Cédula o Contraseña:' : 'Contraseña del PDF (Opcional si tu banco lo protege con cédula):'}</span>
               </label>
               <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.35rem' }}>
@@ -792,7 +798,7 @@ Pago minimo $981.827,83
                 />
               </div>
               <span style={{ display: 'block', fontSize: '0.75rem', color: 'var(--color-text-muted)', marginTop: '0.35rem' }}>
-                💡 Bancolombia, Nu, Davivienda y Nequi suelen proteger los extractos con el número de cédula del titular.
+                Bancolombia, Nu, Davivienda y Nequi suelen proteger los extractos con el número de cédula del titular.
               </span>
             </div>
 
@@ -803,7 +809,7 @@ Pago minimo $981.827,83
                 disabled={!archivoPdf || cargando}
                 style={{ minWidth: '240px' }}
               >
-                {cargando ? 'Analizando PDF...' : requierePassword ? '🔓 Desbloquear y Auditar PDF' : '🔍 Leer y Auditar Extracto'}
+                {cargando ? 'Analizando PDF...' : requierePassword ? 'Desbloquear y Auditar PDF' : 'Leer y Auditar Extracto'}
               </button>
             </div>
           </form>
@@ -824,7 +830,7 @@ Pago minimo $981.827,83
             </div>
             <div style={{ display: 'flex', justifyContent: 'center' }}>
               <button type="submit" className="btn primary" disabled={!textoManual.trim() || cargando}>
-                {cargando ? 'Procesando...' : '🔍 Analizar y Auditar Texto'}
+                {cargando ? 'Procesando...' : 'Analizar y Auditar Texto'}
               </button>
             </div>
           </form>
@@ -838,7 +844,7 @@ Pago minimo $981.827,83
             </p>
             <div style={{ display: 'flex', justifyContent: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
               <button type="button" className="btn secondary sm" onClick={handleCargarEjemplo}>
-                🏦 Cargar Extracto Bancolombia ($781k / $201k Mínimo)
+                Cargar Extracto Bancolombia ($781k / $201k Mínimo)
               </button>
               <button
                 type="button"
@@ -846,7 +852,7 @@ Pago minimo $981.827,83
                 onClick={handleCargarEjemploNu}
                 style={{ backgroundColor: '#820ad1', borderColor: '#820ad1', color: '#ffffff' }}
               >
-                🟣 Cargar Extracto Nu Colombia ($1.84M / $981k Mínimo)
+                Cargar Extracto Nu Colombia ($1.84M / $981k Mínimo)
               </button>
             </div>
           </div>
@@ -854,7 +860,7 @@ Pago minimo $981.827,83
 
         {errorCarga && !requierePassword && (
           <div className="banner danger" style={{ marginTop: '1rem' }}>
-            ⚠️ {errorCarga}
+            {errorCarga}
           </div>
         )}
       </div>
@@ -887,21 +893,21 @@ Pago minimo $981.827,83
                 onChange={(e) => setMedioAuditado(e.target.value)}
                 style={{ minWidth: '220px' }}
               >
-                <option value="TODOS">🌐 Todas las Cuentas & Tarjetas</option>
+                <option value="TODOS">Todas las Cuentas & Tarjetas</option>
                 {state.tarjetas.length > 0 && (
-                  <optgroup label="💳 Tarjetas de Crédito">
+                  <optgroup label="Tarjetas de Crédito">
                     {state.tarjetas.map((t) => (
                       <option key={t.id} value={`tarjeta:${t.id}`}>
-                        💳 {t.nombre}
+                        {t.nombre}
                       </option>
                     ))}
                   </optgroup>
                 )}
                 {state.cuentas.length > 0 && (
-                  <optgroup label="🏦 Cuentas Bancarias">
+                  <optgroup label="Cuentas Bancarias">
                     {state.cuentas.map((c) => (
                       <option key={c.id} value={`cuenta:${c.id}`}>
-                        🏦 {c.nombre}
+                        {c.nombre}
                       </option>
                     ))}
                   </optgroup>
@@ -915,7 +921,7 @@ Pago minimo $981.827,83
                 className="btn success sm"
                 onClick={handleImportarTodosFaltantes}
               >
-                🚀 Importar los {reporteAuditoria.cantidadFaltantes} Faltantes a la App ({formatMoney(reporteAuditoria.totalMontoFaltante)})
+                Importar los {reporteAuditoria.cantidadFaltantes} Faltantes a la App ({formatMoney(reporteAuditoria.totalMontoFaltante)})
               </button>
             )}
           </div>
@@ -927,14 +933,14 @@ Pago minimo $981.827,83
               className={`btn ${vistaPrincipal === 'COLUMNAS_PDF' ? 'primary' : 'secondary'}`}
               onClick={() => setVistaPrincipal('COLUMNAS_PDF')}
             >
-              📋 Ver Tabla de Columnas Extraídas ({transaccionesExtraidas.length} movimientos)
+              Ver Tabla de Columnas Extraídas ({transaccionesExtraidas.length} movimientos)
             </button>
             <button
               type="button"
               className={`btn ${vistaPrincipal === 'AUDITORIA_APP' ? 'primary' : 'secondary'}`}
               onClick={() => setVistaPrincipal('AUDITORIA_APP')}
             >
-              ⚖️ Auditoría & Comparación vs App ({reporteAuditoria.porcentajeConciliacion}% Cuadrado)
+              Auditoría & Comparación vs App ({reporteAuditoria.porcentajeConciliacion}% Cuadrado)
             </button>
           </div>
 
@@ -960,7 +966,7 @@ Pago minimo $981.827,83
                           justifyContent: 'space-between',
                         }}
                       >
-                        <span>{bancoDetectado === 'NU' ? '🟣 Resumen de tu extracto Nu' : 'Cupo de tu tarjeta'}</span>
+                        <span>{bancoDetectado === 'NU' ? 'Resumen de tu extracto Nu' : 'Cupo de tu tarjeta'}</span>
                         <span style={{ fontSize: '0.8rem', opacity: 0.9 }}>{bancoDetectado === 'NU' ? 'Nu Colombia' : 'Bancolombia'}</span>
                       </div>
                       <div style={{ padding: '1rem 1.25rem', display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
@@ -998,7 +1004,7 @@ Pago minimo $981.827,83
                           justifyContent: 'space-between',
                         }}
                       >
-                        <span>{bancoDetectado === 'NU' ? '🟣 Información de pago Nu' : 'Información de pago en pesos'}</span>
+                        <span>{bancoDetectado === 'NU' ? 'Información de pago Nu' : 'Información de pago en pesos'}</span>
                         <span style={{ fontSize: '0.8rem', opacity: 0.9 }}>{bancoDetectado === 'NU' ? '04 SEP 2026' : 'sep. 02, 2026'}</span>
                       </div>
                       <div style={{ padding: '1rem 1.25rem', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.85rem', alignItems: 'center' }}>
@@ -1040,7 +1046,7 @@ Pago minimo $981.827,83
                       onClick={handleSincronizarTarjetaConExtracto}
                       style={{ fontSize: '0.825rem' }}
                     >
-                      🔄 Sincronizar Cupo ({formatMoney(resumenCabecera.cupoTotal || 0)}), Pago Mínimo ({formatMoney(resumenCabecera.pagoMinimo || 0)}) y Total ({formatMoney(resumenCabecera.pagoTotal || 0)}) con tu Tarjeta
+                      Sincronizar Cupo ({formatMoney(resumenCabecera.cupoTotal || 0)}), Pago Mínimo ({formatMoney(resumenCabecera.pagoMinimo || 0)}) y Total ({formatMoney(resumenCabecera.pagoTotal || 0)}) con tu Tarjeta
                     </button>
                   </div>
                 </div>
@@ -1058,7 +1064,6 @@ Pago minimo $981.827,83
                   border: '1px solid var(--color-border)',
                 }}
               >
-                <div style={{ fontSize: '2rem' }}>✋</div>
                 <div>
                   <strong style={{ fontSize: '1.05rem', display: 'block' }}>Detalles del movimiento</strong>
                   <span style={{ fontSize: '0.825rem', color: 'var(--color-text-muted)' }}>
@@ -1072,7 +1077,6 @@ Pago minimo $981.827,83
                 <div className="panel-header" style={{ backgroundColor: 'rgba(236, 72, 153, 0.08)', borderBottom: '2px solid #ec4899', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap' }}>
                   <div>
                     <h3 style={{ margin: 0, fontSize: '1.05rem', color: '#db2777', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                      <span>🌸</span>
                       <span>Nuevos movimientos del período (1/1 y Abonos)</span>
                       <span className="badge neutral" style={{ fontSize: '0.75rem' }}>
                         {transaccionesExtraidas.filter((t) => t.seccionExtracto === 'NUEVOS_MOVIMIENTOS').length} movimientos
@@ -1140,7 +1144,7 @@ Pago minimo $981.827,83
                                 )}
                                 {matchGasto && (
                                   <span className="badge income" style={{ fontSize: '0.7rem' }}>
-                                    🟢 Ya en Tarjetas ({matchGasto.categoria})
+                                    Ya en Tarjetas ({matchGasto.categoria})
                                   </span>
                                 )}
                               </td>
@@ -1169,7 +1173,7 @@ Pago minimo $981.827,83
                               <td style={{ textAlign: 'right' }}>
                                 {matchGasto ? (
                                   <span className="badge neutral" style={{ fontSize: '0.75rem', padding: '0.35rem 0.65rem' }}>
-                                    ✓ Al día
+                                    Al día
                                   </span>
                                 ) : (
                                   <button
@@ -1201,7 +1205,6 @@ Pago minimo $981.827,83
                 <div className="panel-header" style={{ backgroundColor: 'rgba(14, 165, 233, 0.08)', borderBottom: '2px solid #0ea5e9', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap' }}>
                   <div>
                     <h3 style={{ margin: 0, fontSize: '1.05rem', color: '#0284c7', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                      <span>🌊</span>
                       <span>Movimientos anteriores (Compras a Cuotas vigentes)</span>
                       <span className="badge neutral" style={{ fontSize: '0.75rem' }}>
                         {transaccionesExtraidas.filter((t) => t.seccionExtracto === 'MOVIMIENTOS_ANTERIORES').length} compras diferidas
@@ -1249,17 +1252,17 @@ Pago minimo $981.827,83
                                   {matchCuota ? (
                                     <>
                                       <span className="badge income" style={{ fontSize: '0.7rem' }}>
-                                        🔗 Vinculada a: "{matchCuota.descripcion}"
+                                        Vinculada a: "{matchCuota.descripcion}"
                                       </span>
                                       {estaDesactualizada && (
                                         <span className="badge warning" style={{ fontSize: '0.675rem' }}>
-                                          ⚠️ En App: Cuota {matchCuota.cuotasPagadas}/{matchCuota.cuotasTotales} • Saldo: {formatMoney(matchCuota.saldoRestante)}
+                                          En App: Cuota {matchCuota.cuotasPagadas}/{matchCuota.cuotasTotales} • Saldo: {formatMoney(matchCuota.saldoRestante)}
                                         </span>
                                       )}
                                     </>
                                   ) : (
                                     <span className="badge neutral" style={{ fontSize: '0.7rem' }}>
-                                      🆕 No está en tu lista de Tarjetas
+                                      No está en tu lista de Tarjetas
                                     </span>
                                   )}
 
@@ -1284,10 +1287,10 @@ Pago minimo $981.827,83
                                         maxWidth: '220px',
                                       }}
                                     >
-                                      <option value="__NEW__">➕ Crear como nueva compra a cuotas</option>
+                                      <option value="__NEW__">+ Crear como nueva compra a cuotas</option>
                                       {state.comprasCuotas.map((c) => (
                                         <option key={c.id} value={c.id}>
-                                          🔗 {c.descripcion} ({formatMoney(c.montoTotal)})
+                                          {c.descripcion} ({formatMoney(c.montoTotal)})
                                         </option>
                                       ))}
                                     </select>
@@ -1317,11 +1320,11 @@ Pago minimo $981.827,83
                                       onClick={() => handleActualizarCompraCuota(tx, matchCuota)}
                                       title="Sincronizar saldo y cuotas con los datos del extracto"
                                     >
-                                      🔄 Actualizar en Tarjetas
+                                      Actualizar en Tarjetas
                                     </button>
                                   ) : (
                                     <span className="badge neutral" style={{ fontSize: '0.75rem', padding: '0.35rem 0.65rem' }}>
-                                      ✅ Al día
+                                      Al día
                                     </span>
                                   )
                                 ) : (
@@ -1408,35 +1411,35 @@ Pago minimo $981.827,83
                   className={`tab-btn ${activeTabAuditoria === 'FALTANTES' ? 'active' : ''}`}
                   onClick={() => setActiveTabAuditoria('FALTANTES')}
                 >
-                  🔴 Faltantes ({reporteAuditoria.cantidadFaltantes})
+                  Faltantes ({reporteAuditoria.cantidadFaltantes})
                 </button>
                 <button
                   type="button"
                   className={`tab-btn ${activeTabAuditoria === 'CONCILIADOS' ? 'active' : ''}`}
                   onClick={() => setActiveTabAuditoria('CONCILIADOS')}
                 >
-                  ✅ Conciliados ({reporteAuditoria.cantidadConciliados})
+                  Conciliados ({reporteAuditoria.cantidadConciliados})
                 </button>
                 <button
                   type="button"
                   className={`tab-btn ${activeTabAuditoria === 'CARGOS' ? 'active' : ''}`}
                   onClick={() => setActiveTabAuditoria('CARGOS')}
                 >
-                  ⚠️ Cobros Bancarios ({reporteAuditoria.cantidadCargosBancarios})
+                  Cobros Bancarios ({reporteAuditoria.cantidadCargosBancarios})
                 </button>
                 <button
                   type="button"
                   className={`tab-btn ${activeTabAuditoria === 'DIFERENCIAS' ? 'active' : ''}`}
                   onClick={() => setActiveTabAuditoria('DIFERENCIAS')}
                 >
-                  🟡 Discrepancias ({reporteAuditoria.cantidadDiferencias})
+                  Discrepancias ({reporteAuditoria.cantidadDiferencias})
                 </button>
                 <button
                   type="button"
                   className={`tab-btn ${activeTabAuditoria === 'APP_SOLO' ? 'active' : ''}`}
                   onClick={() => setActiveTabAuditoria('APP_SOLO')}
                 >
-                  🔵 Anotados en App no encontrados ({reporteAuditoria.registrosAppNoEnExtracto.length})
+                  Anotados en App no encontrados ({reporteAuditoria.registrosAppNoEnExtracto.length})
                 </button>
               </div>
             </div>
@@ -1489,7 +1492,7 @@ Pago minimo $981.827,83
                     {reporteAuditoria.cantidadFaltantes === 0 && (
                       <tr>
                         <td colSpan={6} style={{ textAlign: 'center', padding: '2.5rem', color: 'var(--color-income)' }}>
-                          🎉 ¡Excelente! No tienes ningún gasto bancario sin registrar. Todas tus compras del extracto están en la app.
+                          ¡Excelente! No tienes ningún gasto bancario sin registrar. Todas tus compras del extracto están en la app.
                         </td>
                       </tr>
                     )}
@@ -1533,7 +1536,7 @@ Pago minimo $981.827,83
                           </td>
                           <td>
                             <span className="badge income" style={{ fontSize: '0.725rem' }}>
-                              ✓ Conciliado
+                              Conciliado
                             </span>
                           </td>
                         </tr>
@@ -1639,7 +1642,7 @@ Pago minimo $981.827,83
                     {reporteAuditoria.cantidadDiferencias === 0 && (
                       <tr>
                         <td colSpan={6} style={{ textAlign: 'center', padding: '2.5rem', color: 'var(--color-income)' }}>
-                          ✓ No hay diferencias de montos en los registros coincidentes.
+                          No hay diferencias de montos en los registros coincidentes.
                         </td>
                       </tr>
                     )}

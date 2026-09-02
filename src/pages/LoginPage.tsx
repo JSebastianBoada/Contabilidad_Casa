@@ -138,7 +138,7 @@ export function LoginPage() {
               gap: '0.65rem',
             }}
           >
-            <strong style={{ fontSize: '0.85rem' }}>🔥 Configurar Conexión Firebase</strong>
+            <strong style={{ fontSize: '0.85rem' }}>Configurar Conexión Firebase</strong>
             <div className="form-group" style={{ marginBottom: 0 }}>
               <label style={{ fontSize: '0.75rem' }}>API Key *</label>
               <input
@@ -174,7 +174,7 @@ export function LoginPage() {
 
             {configSuccess && (
               <span style={{ fontSize: '0.75rem', color: 'var(--color-success-light)' }}>
-                ✓ Guardado. Recargando conexión...
+                Guardado. Recargando conexión...
               </span>
             )}
 
@@ -269,7 +269,7 @@ export function LoginPage() {
             style={{ width: '100%', justifyContent: 'center', fontSize: '0.775rem' }}
             onClick={() => setShowHelp(!showHelp)}
           >
-            {showHelp ? '▲ Ocultar ayuda de acceso' : '💡 ¿Aún no has creado tu usuario en Firebase?'}
+            {showHelp ? 'Ocultar ayuda de acceso' : '¿Aún no has creado tu usuario en Firebase?'}
           </button>
 
           {showHelp && (

@@ -164,7 +164,7 @@ export function AsesorPage() {
             onClick={() => setActiveTab('CHAT')}
             style={{ padding: '0.65rem 1.2rem', gap: '0.5rem' }}
           >
-            💬 Consultar al Asesor
+            Consultar al Asesor
           </button>
         </div>
 
@@ -214,28 +214,28 @@ export function AsesorPage() {
           className={`tab-btn ${activeTab === 'DIAGNOSTICO' ? 'active' : ''}`}
           onClick={() => setActiveTab('DIAGNOSTICO')}
         >
-          📊 Regla 50/30/20 & Diagnóstico
+          Regla 50/30/20 & Diagnóstico
         </button>
         <button
           type="button"
           className={`tab-btn ${activeTab === 'CONSEJOS' ? 'active' : ''}`}
           onClick={() => setActiveTab('CONSEJOS')}
         >
-          💡 Consejos & Estrategia ({consejos.length})
+          Consejos & Estrategia ({consejos.length})
         </button>
         <button
           type="button"
           className={`tab-btn ${activeTab === 'CHAT' ? 'active' : ''}`}
           onClick={() => setActiveTab('CHAT')}
         >
-          💬 Chat Asesor Inteligente
+          Chat Asesor Inteligente
         </button>
         <button
           type="button"
           className={`tab-btn ${activeTab === 'SIMULADOR' ? 'active' : ''}`}
           onClick={() => setActiveTab('SIMULADOR')}
         >
-          🎯 Simulador de Decisiones
+          Simulador de Decisiones
         </button>
       </div>
 
@@ -247,7 +247,7 @@ export function AsesorPage() {
             {/* 50% Necesidades */}
             <article className="stat-card" style={{ borderLeft: `5px solid ${regla.necesidades.estado === 'ok' ? '#10b981' : '#f43f5e'}` }}>
               <div className="stat-card-top">
-                <span className="stat-card-title">🏠 Necesidades Básicas (Meta 50%)</span>
+                <span className="stat-card-title">Necesidades Básicas (Meta 50%)</span>
                 <span className={`badge ${regla.necesidades.estado === 'ok' ? 'income' : 'expense'}`}>
                   {regla.necesidades.porcentaje}% del ingreso
                 </span>
@@ -263,7 +263,7 @@ export function AsesorPage() {
                 />
               </div>
               <span className="stat-subtext">
-                Límite ideal: <strong>{formatMoney(regla.necesidades.metaMonto)}</strong>. {regla.necesidades.diferencia <= 0 ? '✓ Estás dentro del rango ideal.' : `⚠️ Excedido por ${formatMoney(regla.necesidades.diferencia)}.`}
+                Límite ideal: <strong>{formatMoney(regla.necesidades.metaMonto)}</strong>. {regla.necesidades.diferencia <= 0 ? 'Estás dentro del rango ideal.' : `Excedido por ${formatMoney(regla.necesidades.diferencia)}.`}
               </span>
               <span style={{ fontSize: '0.725rem', color: 'var(--color-text-muted)', marginTop: '2px' }}>
                 Incluye: Arriendo, servicios públicos, compras de aseo y mercado general.
@@ -273,7 +273,7 @@ export function AsesorPage() {
             {/* 30% Deseos y Ocio */}
             <article className="stat-card" style={{ borderLeft: `5px solid ${regla.deseos.estado === 'ok' ? '#3b82f6' : '#f59e0b'}` }}>
               <div className="stat-card-top">
-                <span className="stat-card-title">🎉 Deseos, Salidas & Ocio (Meta 30%)</span>
+                <span className="stat-card-title">Deseos, Salidas & Ocio (Meta 30%)</span>
                 <span className={`badge ${regla.deseos.estado === 'ok' ? 'primary' : 'warning'}`}>
                   {regla.deseos.porcentaje}% del ingreso
                 </span>
@@ -289,7 +289,7 @@ export function AsesorPage() {
                 />
               </div>
               <span className="stat-subtext">
-                Límite ideal: <strong>{formatMoney(regla.deseos.metaMonto)}</strong>. {regla.deseos.diferencia <= 0 ? '✓ Nivel de disfrute controlado.' : `⚠️ Te pasaste por ${formatMoney(regla.deseos.diferencia)}.`}
+                Límite ideal: <strong>{formatMoney(regla.deseos.metaMonto)}</strong>. {regla.deseos.diferencia <= 0 ? 'Nivel de disfrute controlado.' : `Te pasaste por ${formatMoney(regla.deseos.diferencia)}.`}
               </span>
               <span style={{ fontSize: '0.725rem', color: 'var(--color-text-muted)', marginTop: '2px' }}>
                 Incluye: Restaurantes, partidos, celular, regalos y suscripciones.
@@ -299,7 +299,7 @@ export function AsesorPage() {
             {/* 20% Ahorro y Deudas */}
             <article className="stat-card" style={{ borderLeft: `5px solid ${regla.ahorroDeuda.estado === 'ok' ? '#10b981' : '#f43f5e'}` }}>
               <div className="stat-card-top">
-                <span className="stat-card-title">💰 Ahorro & Deuda (Meta 20%)</span>
+                <span className="stat-card-title">Ahorro & Deuda (Meta 20%)</span>
                 <span className={`badge ${regla.ahorroDeuda.estado === 'ok' ? 'income' : 'expense'}`}>
                   {regla.ahorroDeuda.porcentaje}% del ingreso
                 </span>
@@ -315,7 +315,7 @@ export function AsesorPage() {
                 />
               </div>
               <span className="stat-subtext">
-                Meta ideal: <strong>{formatMoney(regla.ahorroDeuda.metaMonto)}</strong>. {regla.ahorroDeuda.porcentaje >= 20 ? '✓ Excelente capacidad de capitalización.' : `⚠️ Faltan ${formatMoney(Math.abs(regla.ahorroDeuda.diferencia))} para la meta.`}
+                Meta ideal: <strong>{formatMoney(regla.ahorroDeuda.metaMonto)}</strong>. {regla.ahorroDeuda.porcentaje >= 20 ? 'Excelente capacidad de capitalización.' : `Faltan ${formatMoney(Math.abs(regla.ahorroDeuda.diferencia))} para la meta.`}
               </span>
               <span style={{ fontSize: '0.725rem', color: 'var(--color-text-muted)', marginTop: '2px' }}>
                 Incluye: Saldo neto para ahorro/inversión y cuotas de tarjetas.
@@ -326,7 +326,7 @@ export function AsesorPage() {
           {/* Explicación de la Regla 50/30/20 */}
           <div className="panel">
             <div className="panel-header">
-              <h2 className="panel-title">📚 ¿Por qué es importante la Regla 50/30/20?</h2>
+              <h2 className="panel-title">¿Por qué es importante la Regla 50/30/20?</h2>
             </div>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '1rem', fontSize: '0.875rem', lineHeight: 1.5, color: 'var(--color-text-muted)' }}>
               <div>
@@ -358,20 +358,16 @@ export function AsesorPage() {
           {consejos.map((c) => {
             let borderColor = 'var(--color-primary-light)'
             let badgeVariant = 'primary'
-            let iconEmoji = '💡'
 
             if (c.tipo === 'CRITICAL') {
               borderColor = 'var(--color-expense)'
               badgeVariant = 'expense'
-              iconEmoji = '🚨'
             } else if (c.tipo === 'WARNING') {
               borderColor = 'var(--color-warning)'
               badgeVariant = 'warning'
-              iconEmoji = '⚠️'
             } else if (c.tipo === 'SUCCESS') {
               borderColor = 'var(--color-income)'
               badgeVariant = 'income'
-              iconEmoji = '🌟'
             }
 
             return (
@@ -386,7 +382,6 @@ export function AsesorPage() {
               >
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.5rem' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
-                    <span style={{ fontSize: '1.3rem' }}>{iconEmoji}</span>
                     <strong style={{ fontSize: '1rem', color: 'var(--color-text-main)' }}>{c.titulo}</strong>
                   </div>
                   <span className={`badge ${badgeVariant}`} style={{ fontSize: '0.725rem' }}>
@@ -401,7 +396,7 @@ export function AsesorPage() {
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.75rem', marginTop: '0.35rem', paddingTop: '0.65rem', borderTop: '1px solid var(--color-border)' }}>
                   {c.impactoEstimado && (
                     <span style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--color-income-text)' }}>
-                      🎯 Impacto: {c.impactoEstimado}
+                      Impacto: {c.impactoEstimado}
                     </span>
                   )}
                   {c.rutaSugerida && (
@@ -416,7 +411,6 @@ export function AsesorPage() {
 
           {consejos.length === 0 && (
             <div className="panel" style={{ textAlign: 'center', padding: '3rem 1rem' }}>
-              <span style={{ fontSize: '2rem' }}>🎉</span>
               <h3 style={{ marginTop: '0.5rem', fontSize: '1.1rem' }}>¡Sin alertas críticas!</h3>
               <p style={{ color: 'var(--color-text-muted)', marginTop: '0.25rem' }}>
                 Tus finanzas se encuentran en excelente equilibrio este mes. Sigue registrando tus movimientos diarios.
@@ -442,10 +436,11 @@ export function AsesorPage() {
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
-                  fontSize: '1.1rem',
+                  fontSize: '0.85rem',
+                  fontWeight: 700,
                 }}
               >
-                🤖
+                AI
               </div>
               <div>
                 <strong style={{ fontSize: '0.95rem', display: 'block' }}>Asesor Financiero Virtual</strong>
@@ -515,7 +510,7 @@ export function AsesorPage() {
               style={{ fontSize: '0.75rem', whiteSpace: 'nowrap' }}
               onClick={() => handleEnviarPregunta('¿Cómo van los gastos de almuerzos, comidas con mi hermano y fines de semana?')}
             >
-              🥗 Almuerzos & Hermano
+              Almuerzos & Hermano
             </button>
             <button
               type="button"
@@ -523,7 +518,7 @@ export function AsesorPage() {
               style={{ fontSize: '0.75rem', whiteSpace: 'nowrap' }}
               onClick={() => handleEnviarPregunta('¿Cuánto puedo gastar este fin de semana sin afectar mis recibos?')}
             >
-              🍹 Fin de semana
+              Fin de semana
             </button>
             <button
               type="button"
@@ -531,7 +526,7 @@ export function AsesorPage() {
               style={{ fontSize: '0.75rem', whiteSpace: 'nowrap' }}
               onClick={() => handleEnviarPregunta('¿Cuál de mis tarjetas debo pagar primero para ahorrar intereses?')}
             >
-              💳 Pagar tarjetas
+              Pagar tarjetas
             </button>
             <button
               type="button"
@@ -539,7 +534,7 @@ export function AsesorPage() {
               style={{ fontSize: '0.75rem', whiteSpace: 'nowrap' }}
               onClick={() => handleEnviarPregunta('¿Cómo debo distribuir el sueldo de mi nómina según la regla 50/30/20?')}
             >
-              💼 Distribuir nómina
+              Distribuir nómina
             </button>
             <button
               type="button"
@@ -547,7 +542,7 @@ export function AsesorPage() {
               style={{ fontSize: '0.75rem', whiteSpace: 'nowrap' }}
               onClick={() => handleEnviarPregunta('¿Cómo está mi fondo de emergencia y ahorro?')}
             >
-              📈 Fondo de emergencia
+              Fondo de emergencia
             </button>
           </div>
 
@@ -574,7 +569,7 @@ export function AsesorPage() {
           {/* Simulador 1: Compra a Cuotas */}
           <div className="panel">
             <div className="panel-header">
-              <h2 className="panel-title">💳 Simulador de Nueva Compra a Cuotas</h2>
+              <h2 className="panel-title">Simulador de Nueva Compra a Cuotas</h2>
             </div>
             <p style={{ fontSize: '0.825rem', color: 'var(--color-text-muted)' }}>
               Calcula cómo afectará una nueva compra diferida a tu flujo de caja mensual.
@@ -629,7 +624,7 @@ export function AsesorPage() {
           {/* Simulador 2: Recorte de Gastos Hormiga */}
           <div className="panel">
             <div className="panel-header">
-              <h2 className="panel-title">✂️ Impacto de Ahorro en Gastos Hormiga</h2>
+              <h2 className="panel-title">Impacto de Ahorro en Gastos Hormiga</h2>
             </div>
             <p style={{ fontSize: '0.825rem', color: 'var(--color-text-muted)' }}>
               Proyecta cuánto dinero extra acumularías si reduces gastos hormiga o salidas a comer.
@@ -659,7 +654,7 @@ export function AsesorPage() {
           {/* Simulador 3: Abono Extraordinario a Deuda */}
           <div className="panel">
             <div className="panel-header">
-              <h2 className="panel-title">⚡ Abono Extraordinario a Tarjeta</h2>
+              <h2 className="panel-title">Abono Extraordinario a Tarjeta</h2>
             </div>
             <p style={{ fontSize: '0.825rem', color: 'var(--color-text-muted)' }}>
               Simula cómo un abono a capital reduce tu deuda total en tarjetas.

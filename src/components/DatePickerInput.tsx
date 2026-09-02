@@ -1,5 +1,5 @@
 import { type ChangeEvent } from 'react'
-import { formatDate } from '../utils/formatters'
+import { formatDate, getLocalTodayISO } from '../utils/formatters'
 
 interface DatePickerInputProps {
   value: string // 'YYYY-MM-DD'
@@ -22,7 +22,7 @@ export function DatePickerInput({
   showQuickChips = true,
   selectedMonthContext,
 }: DatePickerInputProps) {
-  const hoyISO = new Date().toISOString().slice(0, 10)
+  const hoyISO = getLocalTodayISO()
 
   // Acciones rápidas de fecha
   function setHoy() {
@@ -30,9 +30,13 @@ export function DatePickerInput({
   }
 
   function setAyer() {
-    const d = new Date()
-    d.setDate(d.getDate() - 1)
-    onChange(d.toISOString().slice(0, 10))
+    const [y, m, d] = hoyISO.split('-').map(Number)
+    const dateObj = new Date(y, m - 1, d)
+    dateObj.setDate(dateObj.getDate() - 1)
+    const year = dateObj.getFullYear()
+    const month = String(dateObj.getMonth() + 1).padStart(2, '0')
+    const day = String(dateObj.getDate()).padStart(2, '0')
+    onChange(`${year}-${month}-${day}`)
   }
 
   function setDia1() {
@@ -56,7 +60,6 @@ export function DatePickerInput({
     <div className="form-group datepicker-custom-group" style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <label htmlFor={id} style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--color-text-muted)', display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
-          <span>📅</span>
           <span>{label}</span>
           {required && <span style={{ color: 'var(--color-expense)' }}>*</span>}
         </label>
@@ -108,7 +111,7 @@ export function DatePickerInput({
               cursor: 'pointer',
             }}
           >
-            ⚡ Hoy
+            Hoy
           </button>
           <button
             type="button"
@@ -124,7 +127,7 @@ export function DatePickerInput({
               cursor: 'pointer',
             }}
           >
-            📅 Ayer
+            Ayer
           </button>
           <button
             type="button"
@@ -140,7 +143,7 @@ export function DatePickerInput({
               cursor: 'pointer',
             }}
           >
-            1️⃣ Día 1
+            Día 1
           </button>
           <button
             type="button"
@@ -156,7 +159,7 @@ export function DatePickerInput({
               cursor: 'pointer',
             }}
           >
-            1️⃣5️⃣ Día 15
+            Día 15
           </button>
           <button
             type="button"
@@ -172,7 +175,7 @@ export function DatePickerInput({
               cursor: 'pointer',
             }}
           >
-            🏁 Fin de mes
+            Fin de mes
           </button>
         </div>
       )}

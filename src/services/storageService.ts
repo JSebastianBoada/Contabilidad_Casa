@@ -46,16 +46,7 @@ export interface FullFinanceState {
 export const storageService = {
   createEmptyState(): FullFinanceState {
     return {
-      cuentas: [
-        {
-          id: 'cuenta-efectivo-inicial',
-          nombre: 'Efectivo',
-          tipo: 'EFECTIVO',
-          saldo: 0,
-          color: '#10b981',
-          icono: '💵',
-        },
-      ],
+      cuentas: initialCuentas,
       arriendos: [],
       servicios: [],
       comprasHogar: [],
@@ -63,7 +54,7 @@ export const storageService = {
       ingresos: [],
       gastosPersonales: [],
       gastosRecurrentes: [],
-      tarjetas: [],
+      tarjetas: initialTarjetas,
       comprasCuotas: [],
       presupuestos: [],
       transferencias: [],
@@ -138,4 +129,3 @@ export const storageService = {
     }
   },
 }
-
